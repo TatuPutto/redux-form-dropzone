@@ -5,7 +5,16 @@ const UploadErrors = ({ dismiss, failedUploads }) => (
   <span className="fas fa-exclamation-triangle" />
     {failedUploads.length === 1 ?
       <Fragment>
-        {failedUploads[0].error}
+        {' Tiedoston lataaminen ei onnistunut:'}
+        <div>
+          {failedUploads[0].name}
+        </div>
+        <ul>
+          <li>
+            {failedUploads[0].error}
+          </li>
+        </ul>
+
       </Fragment>
       :
       <Fragment>
@@ -18,7 +27,7 @@ const UploadErrors = ({ dismiss, failedUploads }) => (
               </span>
               <ul>
                 <li>
-                  {i === 0 ? 'Tiedosto on liian suuri.' : 'Tiedosto on väärän tyyppinen.'}
+                  {file.error}
                 </li>
               </ul>
             </li>

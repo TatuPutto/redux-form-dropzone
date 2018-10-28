@@ -10,10 +10,11 @@ import l10n from 'get-l10n'
 
 // import cn from 'classnames';
 
+
 import Files from './Files'
 import QueuedFiles from './QueuedFiles'
 
-import UploadErrors from './UploadErrors';
+import UploadErrors from './UploadErrors'
 
 let i = 0;
 
@@ -33,8 +34,69 @@ class RFDropzoneDeferred extends React.Component {
     this.setState({ uploading: !this.state.uploading })
   }
 
-  validateFile = (file) => {
-    const { acceptedFileFormats, attachToProp, input, maxFileSize } = this.props;
+  validateFiles = (files) => {
+    const { acceptedFileFormats, targetProp, input, maxFileSize } = this.props;
+
+    return files.filter(file => {
+      if (fileHasWrongFileType(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.')
+        })
+        return false
+      }
+
+      if (fileExceedsMaximunSizeLimit(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.')
+        })
+        return false
+      }
+
+      if (filenameAlreadyInUse(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.')
+        })
+        return false
+      }
+
+      return true
+    })
+
+    function fileHasWrongFileType(file) {
+      return !file || acceptedFileFormats && acceptedFileFormats.includes(file.type)
+      // if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
+        // const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
+        // this.setValidationError(error);
+        // return false;
+        // return error;
+      // }
+    }
+
+    function fileExceedsMaximunSizeLimit(file) {
+      return maxFileSize && file.size > maxFileSize
+    }
+
+    function filenameAlreadyInUse(file) {
+      const files = targetProp ? input.value[targetProp] : input.value
+      // const sanitizedFilename = attachmentService.sanitizeFilename(file.name);
+
+      console.log();
+
+      return files.some(existingFile => existingFile.name === file.name)
+
+      // if (files.some(existingFile => existingFile.name === file.name)) {
+      //   const error = l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.');
+      //   // this.setValidationError(error);
+      //   // return false;
+      //   return error;
+      // }
+    }
 
     if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
       const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
@@ -66,11 +128,22 @@ class RFDropzoneDeferred extends React.Component {
     // return true;
   }
 
+  resetFailedUploads = () => {
+    return new Promise(resolve => {
+      this.setState({ failedUploads: [] }, resolve)
+    })
+  }
+
   handleDrop = (files) => {
-    this.toggleUploadingStatus();
-    const prepareFilesForStorage = files.map(file => this.prepareFileForStorage(file))
-    return Promise.all(prepareFilesForStorage)
-      .then(this.addFilesToQueue)
+    this.resetFailedUploads().then(() => {
+      const validFiles = this.validateFiles(files)
+
+      this.toggleUploadingStatus();
+
+      const prepareFilesForStorage = validFiles.map(file => this.prepareFileForStorage(file))
+      return Promise.all(prepareFilesForStorage)
+        .then(this.addFilesToQueue)
+    })
   }
 
   addFilesToQueue = (files) => {
@@ -100,11 +173,8 @@ class RFDropzoneDeferred extends React.Component {
     this.setState({ queue: [] }, cb);
   }
 
-  addActiveFileToFailedUploads = (file) => {
-    this.setState({
-      activeFile: null,
-      failedUploads: this.state.failedUploads.concat([this.state.activeFile])
-    });
+  addFileToFailedUploads = (file) => {
+    this.setState({ failedUploads: this.state.failedUploads.concat([file]) });
   }
 
   processNextFileInQueue = () => {
@@ -118,26 +188,26 @@ class RFDropzoneDeferred extends React.Component {
     this.takeFirstFileFromQueue()
       .then(file => {
         // const position = this.getFilePositionInQueue(file)
-        const fileError = this.validateFile(file)
+        // const fileError = this.validateFiles(file)
 
         console.log(`processing ${file.name}: `, file);
 
         // jos virheitä -> poistetaan questa ja siirrettään failedUploads
-        if (fileError) {
-          console.log('file was invalid');
-          const invalidFile = {
-            ...item,
-            status: 'DECLINED',
-            error: fileError
-          };
-          this.removeFromQueue(position);
-          this.addToFailedUploads(invalidFile);
-        } else {
+        // if (fileError) {
+        //   console.log('file was invalid');
+        //   const invalidFile = {
+        //     ...item,
+        //     status: 'DECLINED',
+        //     error: fileError
+        //   };
+        //   this.removeFromQueue(position);
+        //   this.addToFailedUploads(invalidFile);
+        // } else {
           console.log('file was valid - uploading')
           return this.upload(file, false /*(i === 1 ? true : false)*/)
             .then(this.processNextFileInQueue)
             // .then(this.processNextFileInQueue)
-        }
+        // }
       })
 
 
@@ -253,7 +323,8 @@ class RFDropzoneDeferred extends React.Component {
         console.error('upload failed: ', error)
         // this.updateFileInQueue({ ...file, status: 'DECLINED', error })
         this.removeFileFromQueue()
-        this.addActiveFileToFailedUploads(file)
+        this.resetActiveFile()
+        this.addFileToFailedUploads(file)
         // this.updateFormValues()
         return;
       })
@@ -326,7 +397,9 @@ class RFDropzoneDeferred extends React.Component {
 
   queueIsProcessed = () => {
     return !this.state.queue.length ||
-           this.state.queue.every(queuedFile => queuedFile.status !== 'PENDING' && queuedFile.status !== 'UPLOADING');
+           this.state.queue.every(queuedFile => queuedFile.status !== 'PENDING' &&
+                                                queuedFile.status !== 'UPLOADING' &&
+                                                queuedFile.status !== 'DECLINED');
   }
 
   resetActiveFile = () => {

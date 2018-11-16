@@ -48,12 +48,12 @@ class File extends PureComponent {
           />
         </div>
       )
-    } else if (file.status === 'DECLINED') {
+    } else if (file.status === 'DECLINED' || file.status === 'RESENDABLE') {
       return (
         <div className="text-danger">
           <small>
             <span className="fas fa-exclamation-triangle" />
-            {" "} Lataus epäonnistui. Tiedosto on liian suuri.
+            {' ' + file.error}
           </small>
         </div>
       )
@@ -81,15 +81,19 @@ class File extends PureComponent {
         </span>
 
         {!file.status || file.status === 'UPLOADED' ?
-          <button className="dropzone-remove-file-btn" onClick={() => this.props.removeFile(file)}>
+          <button className="dropzone-file-action-btn dropzone-remove-file-btn" onClick={() => this.props.removeFile(file)}>
               <span className="far fa-trash-alt"></span>
           </button>
           : file.status && file.status === 'UPLOADING' ?
-            <button className="dropzone-cancel-upload-btn" onClick={() => this.props.removeFile(file)}>
+            <button className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.removeFile(file)}>
                 <span className="fas fa-times"></span>
             </button>
-            :
-            ''
+            : file.status && file.status === 'RETRIABLE' ?
+              <button className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.retry(file)}>
+                  <span className="fas fa-sync"></span>
+              </button>
+              :
+                ''
         }
 
       </li>

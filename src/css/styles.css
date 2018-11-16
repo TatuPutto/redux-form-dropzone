@@ -81,14 +81,17 @@
   width: 0%;
 }
 
-.dropzone-remove-file-btn {
+.dropzone-file-action-btn {
   float: right;
-  color: #dc3545;
   background: none;
   background-color: none;
   border: none;
   cursor: pointer;
   transition: background-color 0.1s linear;
+}
+
+.dropzone-remove-file-btn {
+  color: #dc3545;
 }
 
 .dropzone-remove-file-btn:hover {

@@ -7,7 +7,12 @@ class Files extends PureComponent {
       <div>
         <ul className="dropzone-files">
           {this.props.files.map((file, i) => (
-            <File key={file.name} file={file} removeFile={this.props.removeFile} />
+            <File
+              key={file.name}
+              file={file}
+              removeFile={this.props.removeFile}
+              retry={this.props.retry}
+            />
           ))}
         </ul>
       </div>

@@ -1,43 +1,102 @@
-import React, { Fragment } from 'react';
-import PropTypes from 'prop-types';
+import React, { Fragment } from 'react'
+import PropTypes from 'prop-types'
 // import { Button } from 'reactstrap';
 // import AlertBlock from './AlertBlock';
-import Dropzone from 'react-dropzone';
+import Dropzone from 'react-dropzone'
 // import Loading from './Loading';
-import l10n from 'get-l10n';
+import l10n from 'get-l10n'
 // import attachmentService from '../../state/services/attachment.service';
 // import clone from 'clone';
 
 // import cn from 'classnames';
+import createFilename from '../../create-filename'
 
+import Files from './Files'
+import QueuedFiles from './QueuedFiles'
 
-var i = 0;
+import UploadErrors from './UploadErrors'
+
+let i = 0;
 
 class RFDropzone extends React.Component {
   constructor() {
     super();
     this.state = {
-      uploading: false,
-      uploadQueue: [],
+      validationError: '',
+      queue: [],
       failedUploads: [],
-      validationError: ''
+      uploading: false
     };
+    this.dropzoneRef = React.createRef();
   }
 
   toggleUploadingStatus = () => {
-    this.setState({ uploading: !this.state.uploading });
+    this.setState({ uploading: !this.state.uploading })
   }
 
-  setValidationError = (error) => {
-    this.setState({ validationError: error });
-  }
+  validateFiles = (files) => {
+    const { acceptedFileFormats, targetProp, input, maxFileSize } = this.props;
 
-  resetValidationError = () => {
-    this.setState({ validationError: '' });
-  }
+    return files.filter(file => {
+      if (fileHasWrongFileType(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.')
+        })
+        return false
+      }
 
-  validateFile = (file) => {
-    const { acceptedFileFormats, attachToProp, input, maxFileSize } = this.props;
+      if (fileExceedsMaximunSizeLimit(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.')
+        })
+        return false
+      }
+
+      if (filenameAlreadyInUse(file)) {
+        this.addFileToFailedUploads({
+          name: file.name,
+          status: 'DECLINED',
+          error: l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.')
+        })
+        return false
+      }
+
+      return true
+    })
+
+    function fileHasWrongFileType(file) {
+      return !file || acceptedFileFormats && acceptedFileFormats.includes(file.type)
+      // if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
+        // const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
+        // this.setValidationError(error);
+        // return false;
+        // return error;
+      // }
+    }
+
+    function fileExceedsMaximunSizeLimit(file) {
+      return maxFileSize && file.size > maxFileSize
+    }
+
+    function filenameAlreadyInUse(file) {
+      const files = targetProp ? input.value[targetProp] : input.value
+      // const sanitizedFilename = attachmentService.sanitizeFilename(file.name);
+
+      console.log();
+
+      return files.some(existingFile => existingFile.name === file.name)
+
+      // if (files.some(existingFile => existingFile.name === file.name)) {
+      //   const error = l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.');
+      //   // this.setValidationError(error);
+      //   // return false;
+      //   return error;
+      // }
+    }
 
     if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
       const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
@@ -69,285 +128,407 @@ class RFDropzone extends React.Component {
     // return true;
   }
 
+  resetFailedUploads = () => {
+    return new Promise(resolve => {
+      this.setState({ failedUploads: [] }, resolve)
+    })
+  }
+
+  retry = (file) => {
+    this.toggleUploadingStatus()
+    this.addFilesToQueue(file)
+  }
+
   handleDrop = (files) => {
-    console.log(files);
-    this.toggleUploadingStatus();
+    this.resetFailedUploads().then(() => {
+      const validFiles = this.validateFiles(files)
 
-    const file = files[0];
+      this.toggleUploadingStatus();
 
+      const prepareFilesForStorage = validFiles.map(file => this.prepareFileForStorage(file))
+      return Promise.all(prepareFilesForStorage)
+        .then(this.addFilesToQueue)
+    })
+  }
 
-    const newFiles = this.prepareFiles(files);
-    // this.setState({ uploadQueue: this.state.uploadQueue.concat(uploadQueue) }, this.processQueue);
-    this.setState({ uploadQueue: this.state.uploadQueue.concat(newFiles) }, () => {
-      console.log('added files to queue', this.state.uploadQueue);
-      this.processQueue();
+  addFilesToQueue = (files) => {
+    this.setState({ queue: this.state.queue.concat(files) }, () => {
+      console.log('added files to queue', this.state.queue)
+      this.processQueue()
     });
   }
 
-  prepareFiles = (files) => {
-    return files.map(file => ({
-      file: file,
-      status: 'PENDING'
-    }));
+  // pipeline endpoint
+  processQueue = () => {
+    if (this.queueIsProcessed()) {
+      console.log('Queue is empty - updating form values');
+      // this.emptyQueue(this.updateFormValues(this.state.queue))
+      return this.toggleUploadingStatus()
+    } else {
+      this.processNextFileInQueue()
+    }
   }
 
-  getFirstPendingItemInQueue = () => {
-    return this.state.uploadQueue.find(itemInQueue => itemInQueue.status === 'PENDING');
+  processNextFileInQueue = () => {
+    this.takeFirstFileFromQueueAndSetIsAsActive()
+      .then(this.uploadActiveFile)
+      .then(this.addFileToFormValues)
+      .then(this.resetActiveFile)
+      .catch(this.handleProcessingFailure)
+      .finally(this.processQueue)
+      // .then(this.handleUploadSuccess)
+      // .then((file) => {
+      //   console.log('@upload success')
+      //   this.resetActiveFile()
+      //   // this.updateFormValues([file])
+      // })
+      // .then(() => this.updateFileInQueue({ ...file, status: 'UPLOADED' }))
+      // .then(this.updateFormValues)
+      // .then(() => this.removeFileFromQueue(this.getFilePositionInQueue(file)))
+      // .catch((error) => {
+      //   console.error('upload failed: ', error)
+      //   // this.updateFileInQueue({ ...file, status: 'DECLINED', error })
+      //   // this.removeFileFromQueue()
+      //   this.resetActiveFile()
+      //   this.addFileToFailedUploads(file)
+      //   // this.updateFormValues()
+      //   return;
+      // })
+      // .then(file => {
+        // console.log(`processing ${file.name}: `, file);
+
+
+      //     return this.upload(file, false /*(i === 1 ? true : false)*/)
+      //       .then(this.processNextFileInQueue)
+      //       // .then(this.processNextFileInQueue)
+      //   // }
+      // })
   }
 
-  getPositionInQueue = (item) => {
-    const queue = this.state.uploadQueue;
-    return queue.findIndex(queuedItem => queuedItem.file.name === item.file.name);
+  takeFirstFileFromQueueAndSetIsAsActive = () => {
+    const queue = this.state.queue
+    return new Promise(resolve => {
+      this.setState({
+        activeFile: queue[0],
+        queue: queue.slice(1)
+      }, () => {
+        resolve(queue[0])
+      })
+    })
+
+    // return this.state.queue.find(queuedItem => queuedItem.status === 'PENDING');
   }
 
-  removeFromQueue = (position) => {
-    const queueCopy = [...this.state.uploadQueue];
-    let newQueue;
+  uploadActiveFile = (file) => {
+    this.updateActiveFile('status', 'UPLOADING');
+
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      let requestCompletedBeforeFirstProgressEvent = false;
+      let requestProgressEventsFired = 0;
+
+      request.upload.addEventListener('progress', (e) => {
+        console.log('onProgress')
+        if (requestProgressEventsFired === 0 && e.loaded === e.total) {
+          console.log('completed before first progress event')
+          requestCompletedBeforeFirstProgressEvent = true
+        } else {
+          const progressPercentage = e.progress / e.total * 100
+          // Leave little room for server side processes
+          if (progressPercentage >= 80) {
+            this.updateActiveFile('progress', 80)
+          } else {
+            this.updateActiveFile('progress', progressPercentage)
+          }
+        }
+        console.log('progress', e);
+      }, false);
+      request.upload.addEventListener("load", () => {
+        console.log('completed');
+        if (requestCompletedBeforeFirstProgressEvent) {
+          this.completeIndicatorGracefully()
+        } else {
+          // resolve()
+        }
+
+        // resolve();
+      }, false);
+
+      request.addEventListener('error', (e) => {
+        console.log('REQUEST ERRORED OUT!', e);
+        resolve({ ...file, status: 'RETRIABLE', error: 'Lataaminen ei onnistunut.' })
+      })
+
+      request.addEventListener('load', (e) => {
+        const responseStatus = e.currentTarget.status;
+        console.log('REQUEST COMPLETED!', responseStatus);
+
+        if (responseStatus >= 200 && responseStatus < 300) {
+          console.log('request SUCCEEDED!');
+          this.completeServerSideThreshold()
+            .then(() => this.props.onSuccess(file) || Promise.resolve())
+            .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+        } else {
+          console.log('response FAILED!');
+          reject({ ...file, status: 'DECLINED', error: 'Lataaminen ei onnistunut.' })
+        }
+      })
+
+      console.log('opening request');
+
+      console.log('file before upload', JSON.stringify(file));
+
+      request.open('POST', this.props.uploadUrl, true)
+      request.withCredentials = true;
+      request.setRequestHeader('Content-Type', 'application/json')
+      request.send(JSON.stringify({
+        name: file.name,
+        contentType: file.type,
+        content: file.content
+      }))
+
+    })
+  }
+
+  handleUploadSuccess = (file) => {
+  //   console.log('@handleUploadSuccess')
+  //   this.resetActiveFile()
+  //     .then()
+  //   // this.updateFormValues([file])
+  }
+
+  handleProcessingFailure = (file) => {
+    console.log('@handleProcessingFailure');
+    return Promise.all([
+      this.resetActiveFile(),
+      this.addFileToFailedUploads(file)
+    ])
+  }
+
+  addFileToFailedUploads = (file) => {
+    return new Promise(resolve => {
+      this.setState({ failedUploads: this.state.failedUploads.concat([file]) }, () => {
+        resolve()
+      })
+    })
+  }
+
+  completeIndicatorGracefully = () => {
+    let progressPercentage = 0
+
+    return new Promise(resolve => {
+      let onUploadProgress = setInterval(() => {
+        if (progressPercentage <= 80) {
+          this.updateActiveFile('progress', progressPercentage)
+          progressPercentage++
+        } else {
+          clearInterval(onUploadProgress)
+          resolve()
+        }
+      }, 1);
+    })
+  }
+
+  completeServerSideThreshold = () => {
+    const serverSideThreshold = 20;
+    let iterations = 0;
+
+    return new Promise(resolve => {
+      let onUploadProgress = setInterval(() => {
+        if (iterations < 20) {
+          this.updateActiveFile('progress', (100 - serverSideThreshold + iterations))
+          iterations++
+        } else {
+          clearInterval(onUploadProgress)
+          resolve()
+        }
+      }, 1);
+    })
+  }
+
+
+
+  // getFilePositionInQueue = (fileToFind) => {
+  //   const queue = this.state.queue;
+  //   return queue.findIndex(queuedItem => queuedItem === fileToFind.name);
+  // }
+
+  emptyQueue = (cb) => {
+    this.setState({ queue: [] }, cb);
+  }
+
+
+
+
+  removeFileFromQueue = () => {
+    let queueCopy = [...this.state.queue];
+    // let queueAfterRemoval;
     // console.log('queueCopy.shift()', queueCopy.shift());
     if (queueCopy.length === 1) {
-      newQueue = [];
+      queueCopy = [];
     } else {
-      newQueue = queueCopy.slice(1);
+      queueCopy = queueCopy.slice(1);
     }
 
-    console.log('@removeFromQueue - newQueue: ', newQueue);
+    console.log('@removeFromQueue: ', queueCopy);
 
-    this.setState({ uploadQueue: newQueue }, () => {
-      console.log('state after removal', this.state.uploadQueue);
-      this.processQueue();
-    });
+    return new Promise(resolve => {
+      this.setState({ queue: queueCopy }, () => {
+        console.log('queue after removal', this.state.queue);
+        resolve();
+        // this.processNextFileInQueue()
+        //   .then(() => {
+        //     console.log('\n\nQUEUE PROCESSED!\n\n');
+        //   })
+      });
+    })
+
   }
 
-  addToFailedUploads = (item) => {
-    this.setState({ failedUploads: this.state.failedUploads.concat([item]) });
+  queueIsProcessed = () => {
+    return !this.state.queue.length ||
+           this.state.queue.every(queuedFile => queuedFile.status !== 'PENDING' &&
+                                                queuedFile.status !== 'UPLOADING' &&
+                                                queuedFile.status !== 'DECLINED');
   }
 
-  processQueue = () => {
-    if (this.queueIsEmpty()) return this.toggleUploadingStatus();
+  resetActiveFile = () => {
+    return new Promise(resolve => {
+      this.setState({ activeFile: null }, () => {
+        resolve()
+      })
+    })
+  }
 
-    const item = this.getFirstPendingItemInQueue();
-    const position = this.getPositionInQueue(item);
-    const fileError = this.validateFile(item.file);
-
-    console.log('processing item: ', item);
-
-    // jos virheitä -> poistetaan questa ja siirrettään failedUploads
-    if (fileError) {
-      console.log('file was invalid');
-      const invalidFile = {
-        ...item,
-        status: 'DECLINED',
-        error: fileError
-      };
-      this.removeFromQueue(position);
-      this.addToFailedUploads(invalidFile);
-    } else {
-      console.log('file was valid - uploading');
-      this.upload(item, (i === 1 ? true : false));
-    }
-
-
-    // const queue = this.state.uploadQueue;
+  updateActiveFile = (key, value) => {
+    const activeFile = this.state.activeFile
+    // console.log('@updateActiveFile', activeFile);
+    const updatedActiveFile = { ...activeFile, [key]: value }
+    // console.log('@updateActiveFile', updatedActiveFile);
+    this.setState({ activeFile: updatedActiveFile })
+    // console.log('@updateQueue', changedFile);
     //
-    // const processes = queue.map(queuedFile => {
-    //   const fileError = this.validateFile(queuedFile);
-    //   if (!fileError) {
-    //     window.URL.revokeObjectURL(queuedFile.preview);
-    //     // this.props.uploadAttachment(file);
-    //     // this.props.input.onChange(file.name);
-    //     return this.upload(queuedFile);
+    // this.setState({ queue: this.state.queue.map(queueFile => {
+    //   console.log('checking item: ', queueFile);
+    //   if (changedFile.name === queueFile.name) {
+    //     console.log('replacing with new file', changedFile);
+    //     return changedFile;
     //   } else {
-    //     const invalidFile = {
-    //       ...queuedFile,
-    //       status: 'declined',
-    //       reasonOfDeclination: fileError
-    //     };
-    //     this.updateQueue(invalidFile)
-    //     return Promise.resolve();
+    //     console.log('returnign old file', queuedFile);
+    //     return queuedFile;
     //   }
-    // })
-
-    // return Promise.all(processes)
-    //   .then(this.toggleUploadingStatus);
-
-    // if (this.isValidFile(file)) {
-    //   window.URL.revokeObjectURL(file.preview);
-    //   // this.props.uploadAttachment(file);
-    //   // this.props.input.onChange(file.name);
-    //   this.upload(file);
-    // }
+    // }) });
   }
 
+  removeFile = (fileToRemove) => {
+    const request = new XMLHttpRequest();
 
+    request.addEventListener('error', (e) => {
+      console.log('REQUEST ERRORED OUT!', e);
+      // resolve({ ...file, status: 'RETRIABLE', error: 'Lataaminen ei onnistunut.' })
+    })
 
-  upload = (item, fails = false) => {
-    i++;
-    this.updateQueue({ ...item, status: 'UPLOADING' });
-    // this.toggleUploadingStatus();
-    // this.props.uploadFn(file, this.props.requestArgs)
-    return new Promise((resolve, reject) => setTimeout(() => {
-      if (fails) {
-        console.log('rejecting');
-        reject(this.updateQueue({ ...item, status: 'DECLINED', error: 'Tiedosto on liian iso.' }))
-        this.processQueue();
+    request.addEventListener('load', (e) => {
+      const responseStatus = e.currentTarget.status;
+      console.log('REQUEST COMPLETED!', responseStatus);
+
+      if (responseStatus >= 200 && responseStatus < 300) {
+        console.log('request SUCCEEDED!');
+        this.removeFileFromFormValues(fileToRemove)
       } else {
-        resolve(item.file)
+        console.log('response FAILED!');
+
       }
+    })
 
-    }, 3000))
-      .then(this.updateFormValues)
-      .then(() => this.removeFromQueue(this.getPositionInQueue(item)))
-      .catch((error) => {console.error(error)})
-      // .finally(this.toggleUploadingStatus);
+    console.log('opening removal request');
 
+    request.open('DELETE', `${this.props.uploadUrl}/${fileToRemove.name}`, true)
+    request.withCredentials = true
+    request.send()
+
+    // URL.revokeObjectURL(fileToRemove.preview);
   }
 
-  queueIsEmpty = () => {
-    const queue = this.state.uploadQueue;
-    return !queue.length ||
-           queue.every(queuedFile => queuedFile.status === 'DECLINED');
-  }
-
-  fileIsValid = (file) => {
-    const queue = this.state.uploadQueue;
-    // return this.state.uploadQueue[0].name === file.name;
-    return queue.find(queuedFile => queuedFile.name === file.name);
-  }
-
-  updateQueue = (changedItem) => {
-    console.log('@updateQueue', changedItem);
-
-    this.setState({ uploadQueue: this.state.uploadQueue.map(itemInQueue => {
-      console.log('checking item: ', itemInQueue);
-      if (changedItem.file.name === itemInQueue.file.name) {
-        console.log('replacing with new file', changedItem);
-        return changedItem;
-      } else {
-        console.log('returnign old file', itemInQueue);
-        return itemInQueue;
-      }
-    }) });
-  }
-
-  updateFormValues = (file) => {
-    const field = this.props.input;
-    const target = field.value;
-    const targetProp = this.props.targetProp;
-    // console.log('target: ', target);
+  removeFileFromFormValues = (fileToRemove) => {
+    const field = this.props.input
+    const target = field.value
+    const targetProp = this.props.targetProp
 
     if (targetProp) {
-      // console.log('attachments are part of large collection');
-      const targetWithNewFile = {
+      const targetWithFileRemoved = {
         ...target,
-        [targetProp]: target[targetProp].concat([file])
+        [targetProp]: target[targetProp].filter(file => file.name !== fileToRemove.name)
       };
-      // console.log('targetWithNewFile', targetWithNewFile);
-      field.onChange(targetWithNewFile);
+      field.onChange(targetWithFileRemoved);
     } else {
-      // console.log('target contains file only');
       field.onChange(file);
     }
+
+    // URL.revokeObjectURL(fileToRemove.preview);
   }
 
+  addFileToFormValues = (processedFile) => {
+    console.log('@updateFormValues', processedFile)
+    const field = this.props.input
+    const target = field.value
+    const targetCopy = JSON.parse(JSON.stringify(target))
+    const targetProp = this.props.targetProp
+
+    // processedFiles.forEach(processedFile => {
+      // const urlObj = new URL(file.preview);
+      // console.log('urlObj: ', urlObj);
+      // const previewUrl = urlObj.createObjectURL(urlObj)
+      // console.log('previewUrl: ', previewUrl);
+      // const storableFile = this.prepareFileForStorage(file)
+
+      if (targetProp) {
+        targetCopy[targetProp].push(processedFile)
+        // targetWithNewFile = {
+        //   ...target,
+        //   [targetProp]: target[targetProp].concat([file])
+        // }
+      } else {
+        targetCopy.push(processedFile)
+      }
+    // })
+    return field.onChange(targetCopy)
+  }
+
+  prepareFileForStorage = (file) => {console.log('@prepareFileForStorage', this.props);
+    const fileReader = new FileReader();
+
+    return new Promise(resolve => {
+      fileReader.onload = (event) => {
+        const base64EncodedContent = event.target.result.split(',')[1];
+        resolve({
+          name: createFilename(file, this.props.filenameOverride),
+          type: file.type,
+          preview: file.preview,
+          content: base64EncodedContent,
+          status: 'PENDING'
+        });
+      };
+
+      fileReader.readAsDataURL(file);
+    });
+  }
 
   createFileRows = () => {
     const files = this.props.input.value[this.props.targetProp];
-    const queuedItems = this.state.uploadQueue;
-    const failedUploads = this.state.failedUploads;
-    console.log('@createFileRows', files);
-
-
     return (
-      <div>
-        <ul>
-          {files.map((file, i) => (
-            <Fragment>
-            <li key={file.name} style={{padding: '0 .5rem'}}>
-
-
-              <a href={file.location} target="_blank">
-                {file.name}
-                <span className="fas fa-external-link-alt ml-2" />
-              </a>
-
-              <span className="text-danger float-right">
-                <span className="fas fa-trash-alt"></span>
-              </span>
-
-            </li>
-            <hr />
-            </Fragment>
-          ))}
-          {/*<li key={"Tatu_Putto_Turvallisuusselvitys_Puolustusvoimat.pdf"} style={{padding: '0 .5rem'}}>
-
-
-            <a href={"#"} target="_blank" className="d-block">
-              {"Tatu_Putto_Turvallisuusselvitys_Puolustusvoimat.pdf"}
-            </a>
-
-
-            <div id="upload-progress-container">
-              <div id="upload-progress" />
-            </div>
-
-          </li>*/}
-
-          {/*}<div id="upload-progress-container">
-            <div id="upload-progress" />
-          </div>*/}
-
-          {queuedItems.map(item => (
-            <Fragment>
-              <li key={item.file.name} style={{padding: '0 .5rem'}}>
-                <div className="truncated">
-                  {item.file.name}
-                </div>
-                {item.status === 'PENDING' ?
-                  <small>Odottaa...</small>
-
-                  : item.status === 'UPLOADING' ?
-                    <small>
-                      <Loading inline />
-                      <span className="ml-2">Lähetetään...</span>
-                    </small>
-
-                    :
-                      <AlertBlock
-                        alertType="danger"
-                        icon="exclamation-triangle"
-                        text={item.error}
-                      />
-                }
-
-              </li>
-              <hr />
-            </Fragment>
-          ))}
-
-          {failedUploads.map(item => (
-            <Fragment>
-              <li key={item.file.name} style={{padding: '0 .5rem'}}>
-                <div className="truncated">
-                  {item.file.name}
-                </div>
-                <AlertBlock
-                  alertType="danger"
-                  icon="exclamation-triangle"
-                  text={item.error}
-                />
-              </li>
-              <hr />
-            </Fragment>
-          ))}
-
-
-
-        </ul>
-        <hr />
-      </div>
-    );
+      <Fragment>
+        <Files files={files} removeFile={this.removeFile} retry={this.retry} />
+        {this.state.uploading && this.state.activeFile &&
+          <QueuedFiles activeFile={this.state.activeFile} pendingFiles={this.state.queue} />
+        }
+      </Fragment>
+    )
   }
 
+  openFileDialog = () => {
+    this.dropzoneRef.current.open()
+  }
 
 
   render() {
@@ -363,9 +544,9 @@ class RFDropzone extends React.Component {
       // style = { width: "18rem" }
     } = this.props;
     const { uploading, validationError } = this.state;
-
+    //accept={acceptedFileFormats}
     // style={style}
-    console.log(this.state);
+    // console.log(this.state);
 
     return (
       <div>
@@ -380,36 +561,33 @@ class RFDropzone extends React.Component {
         <Dropzone
           name={input.name}
           className="dropzone"
-          accept={acceptedFileFormats}
+
           disabled={error || warning || disabled}
-          disableClick={uploading}
+          disableClick={true}
           multiple={true || false}
           style={error || warning || disabled ? { opacity: "0.4" } : null}
           onDrop={this.handleDrop}
-          ref={dropzone => (this.dropzone = dropzone)}
+          ref={this.dropzoneRef}
         >
           <Fragment>
-            {uploading ?
-              <div>
-                <Loading inline />&nbsp;
-                {`${translations["uploading"]}...`}
-              </div>
-              :
-              <div className="truncated">
-                <a>
-                  Valitse
-                </a>
-                <span style={{ cursor: 'default' }}>
-                  {' '}
-                  tai pudota tiedosto tähän
-                  {/*}{translations["selectOrDropFile"]}*/}
-                </span>
-              </div>
-            }
+            <div className="dropzone-file-select truncate-text">
+              <button
+                className="dropzone-open-file-dialog-btn btn btn-outline-primary"
+                type="button"
+                onClick={() => this.openFileDialog()}
+              >
+                Valitse
+              </button>
+              <span style={{ cursor: 'default' }}>
+                {' '}
+                tai pudota tiedosto tähän
+                {/*}{translations["selectOrDropFile"]}*/}
+              </span>
+            </div>
             {this.createFileRows()}
           </Fragment>
         </Dropzone>
-        {!includeAllowedExtensionsLegend &&
+        {includeAllowedExtensionsLegend &&
           <small className="text-muted text-nowrap">
             {l10n(
               'label.attachmentRestrictions',
@@ -417,6 +595,9 @@ class RFDropzone extends React.Component {
               ['2']
             )}
           </small>
+        }
+        {this.state.failedUploads.length > 0 &&
+          <UploadErrors failedUploads={this.state.failedUploads} />
         }
         {validationError &&
           <AlertBlock

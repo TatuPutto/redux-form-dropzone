@@ -2,9 +2,10 @@
   "name": "redux-form-dropzone",
   "version": "1.0.0",
   "description": "Redux form compatible dropzone component build on top of react-dropzone",
-  "main": "index.js",
+  "main": "./lib/index.js",
   "scripts": {
-    "start": "webpack-dev-server --open --mode development"
+    "start": "node_modules/.bin/webpack-dev-server",
+    "prepublish": "webpack --config webpack.config.prod.js"
   },
   "repository": {
     "type": "git",

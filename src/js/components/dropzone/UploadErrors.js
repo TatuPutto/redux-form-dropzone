@@ -1,35 +1,30 @@
-import React, { Fragment } from 'react';
+import React, { Fragment } from 'react'
+import l10n from 'get-l10n'
 
 const UploadErrors = ({ dismiss, failedUploads }) => (
   <div className="alert alert-danger mt-2">
-  <span className="fas fa-exclamation-triangle" />
     {failedUploads.length === 1 ?
       <Fragment>
-        {' Tiedoston lataaminen ei onnistunut:'}
-        <div>
-          {failedUploads[0].name}
+        <div className="font-weight-bold">
+          {l10n(
+            'error.failedToUpload',
+            '"{0}" lähettäminen epäonnistui.',
+            [failedUploads[0].name]
+          )}
         </div>
-        <ul>
-          <li>
-            {failedUploads[0].error}
-          </li>
-        </ul>
-
+        {failedUploads[0].error}
       </Fragment>
       :
       <Fragment>
-        {' Kaikkien tiedostojen lataaminen ei onnistunut:'}
+        {'Seuraavien tiedostojen lähettäminen ei onnistunut:'}
         <ul className="mt-2 mb-1">
           {failedUploads.map((file, i) => (
             <li className="mt-2">
               <span className="font-weight-bold">
                 {file.name}
               </span>
-              <ul>
-                <li>
-                  {file.error}
-                </li>
-              </ul>
+              <br />
+              {file.error}
             </li>
           ))}
           </ul>

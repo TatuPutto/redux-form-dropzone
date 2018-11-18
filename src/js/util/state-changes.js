@@ -7,8 +7,21 @@ export const addFilesToFailedUploads = (files) => (state) => ({
   failedUploads: state.failedUploads.concat(files)
 })
 
-export const resetFailedUploads = (state) => ({
+export const resetActiveFile = () => ({
+  activeFile: null
+})
+
+export const resetFailedUploads = () => ({
   failedUploads: []
+})
+
+export const setFirstQueuedFileAsActive = (state) => ({
+  activeFile: state.queue.slice(0, 1)[0],
+  queue: state.queue.slice(1)
+})
+
+export const toggleUploadingStatus = (state) => ({
+  uploading: !state.uploading
 })
 
 export const updateActiveFile = (key, value) => (state) => ({

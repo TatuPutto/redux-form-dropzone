@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react'
-import l10n from 'get-l10n'
+import l10n from '../../util/l10n'
 
 const UploadErrors = ({ dismiss, failedUploads }) => (
   <div className="alert alert-danger mt-2">
@@ -18,7 +18,7 @@ const UploadErrors = ({ dismiss, failedUploads }) => (
       <Fragment>
         {'Seuraavien tiedostojen lähettäminen ei onnistunut:'}
         <ul className="mt-2 mb-1">
-          {failedUploads.map((file, i) => (
+          {failedUploads.map(file => (
             <li key={file.name} className="mt-2">
               <span className="font-weight-bold">
                 {file.name}
@@ -31,12 +31,6 @@ const UploadErrors = ({ dismiss, failedUploads }) => (
       </Fragment>
     }
   </div>
-);
+)
 
-/*<ul>
-{failedUploads.map(file => (
-  <li><span className="font-weight-bold">{file.name}</span></li>
-))}
-</ul>*/
-
-export default UploadErrors;
+export default UploadErrors

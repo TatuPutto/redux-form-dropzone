@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react'
-import File from './File';
+import File from './File'
 
 class QueuedFiles extends PureComponent {
   render() {
@@ -7,8 +7,12 @@ class QueuedFiles extends PureComponent {
       <div>
         <ul className="dropzone-files">
           <File file={this.props.activeFile} />
-          {this.props.pendingFiles.map((file, i) => (
-            <File file={file} removeFile={this.props.removeFile} />
+          {this.props.pendingFiles.map(file => (
+            <File
+              key={file.name}
+              file={file}
+              removeFile={this.props.removeFile}
+            />
           ))}
         </ul>
       </div>

@@ -1,5 +1,5 @@
 import React, { Component, Fragment } from 'react'
-import PropTypes from 'prop-types'
+import { bool, func, object, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import Errors from './Errors'
 import Files from './Files'
@@ -14,20 +14,39 @@ import {
   resetActiveFile,
   resetFailedUploads,
   setFirstQueuedFileAsActive,
+  toggleFetchingStatus,
   toggleUploadingStatus,
   updateActiveFile
 } from '../../util/state-changes'
 
 class RFDropzone extends Component {
-  constructor() {
-    super()
+  constructor(props) {
+    super(props)
     this.state = {
+      fetching: props.getFiles ? true : false,
       uploading: false,
       queue: [],
-      erroredFiles: []
+      erroredFiles: [],
     }
     this.dropzoneRef = React.createRef()
     this.progressBarAutocompleteInterval
+  }
+
+  componentDidMount() {
+    if (this.props.getFiles) {
+      this.getFiles()
+    }
+  }
+
+  getFiles = () => {
+    this.props.getFiles()
+      .then(files => {
+        console.log(files)
+        this.setState(toggleFetchingStatus)
+        if (files.length) {
+          this.addFilesToFormValues(files)
+        }
+      })
   }
 
   openFileDialog = () => {
@@ -67,21 +86,17 @@ class RFDropzone extends Component {
         if (this.props.onLoadSuccess) {
           this.props.onLoadSuccess(event, file, fileNumber, resolve)
         } else {
-          this.createFile(event, file, fileNumber, resolve)
+          const base64EncodedContent = event.target.result.split(',')[1]
+          resolve({
+            name: createFilename(file, fileNumber, this.props),
+            type: file.type,
+            preview: file.preview,
+            content: base64EncodedContent,
+            status: 'PENDING'
+          })
         }
       }
       fileReader.readAsDataURL(file)
-    })
-  }
-
-  createFile = (event, file, fileNumber, resolve) => {
-    const base64EncodedContent = event.target.result.split(',')[1]
-    resolve({
-      name: createFilename(file, fileNumber, this.props),
-      type: file.type,
-      preview: file.preview,
-      content: base64EncodedContent,
-      status: 'PENDING'
     })
   }
 
@@ -97,7 +112,7 @@ class RFDropzone extends Component {
     this.setState(resetActiveFile)
     this.setState(setFirstQueuedFileAsActive, () => {
       this.uploadActiveFile()
-        .then(this.addFileToFormValues)
+        .then(this.addFilesToFormValues)
         .catch(this.handleUploadFailure)
         .finally(this.processQueue)
     })
@@ -207,16 +222,19 @@ class RFDropzone extends Component {
     })
   }
 
-  addFileToFormValues = (processedFile) => {
+  addFilesToFormValues = (files) => {
+    files = Array.isArray(files) ? files : [files]
     const field = this.props.input
     const target = field.value
     const targetCopy = JSON.parse(JSON.stringify(target))
     const targetProp = this.props.targetProp
 
     if (targetProp) {
-      targetCopy[targetProp].push(processedFile)
+      targetCopy[targetProp] ?
+        targetCopy[targetProp].concat(files) :
+        targetCopy[targetProp] = files
     } else {
-      targetCopy.push(processedFile)
+      targetCopy.concat(files)
     }
 
     return field.onChange(targetCopy)
@@ -245,7 +263,6 @@ class RFDropzone extends Component {
   }
 
   removeFileFromFormValues = (fileToRemove) => {
-    console.log('@removeFileFromFormValues', fileToRemove)
     const field = this.props.input
     const target = field.value
     const targetProp = this.props.targetProp
@@ -261,7 +278,6 @@ class RFDropzone extends Component {
   }
 
   updateFileInFormValues = (fileToUpdate, key, value) => {
-    console.log('@updateFileInFormValues', fileToUpdate)
     const field = this.props.input
     const target = field.value
     const targetProp = this.props.targetProp
@@ -287,7 +303,9 @@ class RFDropzone extends Component {
   }
 
   renderDropzoneContent = () => {
-    const files = this.props.input.value[this.props.targetProp]
+    const { input, targetProp } = this.props
+    const files = targetProp ? input.value[targetProp] || [] : input.value
+
     return (
       <Fragment>
         <div className="dropzone-file-select truncate-text">
@@ -303,7 +321,9 @@ class RFDropzone extends Component {
             tai pudota tiedosto tähän
           </span>
         </div>
-        <Files files={files} removeFile={this.removeFile} retry={this.retry} />
+        {files.length > 0 &&
+          <Files files={files} removeFile={this.removeFile} />
+        }
         {this.state.uploading && this.state.activeFile &&
           <QueuedFiles activeFile={this.state.activeFile} pendingFiles={this.state.queue} />
         }
@@ -343,6 +363,10 @@ class RFDropzone extends Component {
       // style = { width: "18rem" }
     } = this.props;
 
+    if (this.state.fetching) {
+      return <div>Ladataan...</div>
+    }
+
     return (
       <div>
         {label &&
@@ -374,7 +398,10 @@ class RFDropzone extends Component {
   }
 }
 
-// RFDropzone.propTypes = {
+RFDropzone.propTypes = {
+
+
+
   // acceptedFileFormats: PropTypes.string,
   // className: PropTypes.string,
   // disabled: PropTypes.bool,
@@ -385,6 +412,6 @@ class RFDropzone extends Component {
   // meta: PropTypes.object,
   // style: PropTypes.object,
   // uploadFn: PropTypes.func.isRequired
-// };
+};
 
 export default RFDropzone

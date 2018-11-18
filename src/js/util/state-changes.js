@@ -19,6 +19,10 @@ export const setFirstQueuedFileAsActive = (state) => ({
   queue: state.queue.slice(1)
 })
 
+export const toggleFetchingStatus = (state) => ({
+  fetching: !state.fetching
+})
+
 export const toggleUploadingStatus = (state) => ({
   uploading: !state.uploading
 })

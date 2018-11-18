@@ -1,4 +1,5 @@
-import React, { PureComponent } from 'react';
+import React, { PureComponent } from 'react'
+import { bool, func, object } from 'prop-types'
 
 class File extends PureComponent {
   renderPreview = () => {
@@ -26,7 +27,6 @@ class File extends PureComponent {
 
   renderUploadStatusIndicator = () => {
     const file = this.props.file
-    let statusText;
 
     if (!file.status || file.status === 'UPLOADED') return null
 
@@ -60,15 +60,51 @@ class File extends PureComponent {
     }
   }
 
+  renderActionButton = () => {
+    const file = this.props.file
+
+    if (!file.status || file.status === 'UPLOADED') {
+      return (
+        <button
+          type="button"
+          className="dropzone-file-action-btn dropzone-remove-file-btn"
+          onClick={() => this.props.removeFile(file)}
+        >
+          <span className="far fa-trash-alt" />
+        </button>
+      )
+    } else if (file.status && file.status === 'UPLOADING') {
+      return (
+        <button
+          type="button"
+          className="dropzone-file-action-btn dropzone-cancel-upload-btn"
+          onClick={() => this.props.removeFile(file)}
+        >
+          <span className="far fa-trash-alt" />
+        </button>
+      )
+    } else if (file.status && file.status === 'REMOVING') {
+      return (
+        <button
+          type="button"
+          className="dropzone-file-action-btn dropzone-remove-file-btn"
+          style={{cursor: 'not-allowed'}}
+        >
+          <span className="fas fa-spinner fa-pulse fa-spin mr-1" />
+          Poistetaan...
+        </button>
+      )
+    } else {
+      return null
+    }
+  }
+
   render() {
     const file = this.props.file
-    const showPreview = this.props.showPreview || true
 
     return (
       <li key={file.name} className="dropzone-file">
-
         {this.renderPreview()}
-
         <span className="dropzone-file-content truncate-text">
           <a href={file.location} target="_blank">
             {file.name}
@@ -78,27 +114,20 @@ class File extends PureComponent {
           </a>
           {this.renderUploadStatusIndicator()}
         </span>
-
-        {!file.status || file.status === 'UPLOADED' ?
-          <button type="button" className="dropzone-file-action-btn dropzone-remove-file-btn" onClick={() => this.props.removeFile(file)}>
-              <span className="far fa-trash-alt"></span>
-          </button>
-          : file.status && file.status === 'UPLOADING' ?
-            <button type="button" className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.removeFile(file)}>
-                <span className="fas fa-times"></span>
-            </button>
-            : file.status && file.status === 'RETRIABLE' ?
-              <button type="button" className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.retry(file)}>
-                  <span className="fas fa-sync"></span>
-              </button>
-              :
-                ''
-        }
-
+        {this.renderActionButton()}
       </li>
-    );
+    )
   }
+}
 
+File.defaultProps = {
+  showPreview: true
+}
+
+File.propTypes = {
+  file: object.isRequired,
+  removeFile: func.isRequired,
+  showPreview: bool
 }
 
 export default File;

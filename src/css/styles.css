@@ -85,7 +85,8 @@
   float: right;
   background: none;
   background-color: none;
-  border: none;
+  border: 1px solid #cecece;
+  border-radius: 3px;
   cursor: pointer;
   transition: background-color 0.1s linear;
 }

@@ -1,10 +1,9 @@
+export const addErrors = (erroredFiles) => (state) => ({
+  erroredFiles: state.erroredFiles.concat(erroredFiles)
+})
 
 export const addFilesToQueue = (files) => (state) => ({
   queue: state.queue.concat(files)
-})
-
-export const addFilesToFailedUploads = (files) => (state) => ({
-  failedUploads: state.failedUploads.concat(files)
 })
 
 export const resetActiveFile = () => ({

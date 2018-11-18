@@ -1,15 +1,15 @@
 import React, { Component, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import Dropzone from 'react-dropzone'
+import Errors from './Errors'
 import Files from './Files'
 import QueuedFiles from './QueuedFiles'
-import UploadErrors from './UploadErrors'
 import createFilename from '../../util/create-filename'
 import l10n from '../../util/l10n'
 import validate from '../../util/validate'
 
 import {
-  addFilesToFailedUploads,
+  addErrors,
   addFilesToQueue,
   resetActiveFile,
   resetFailedUploads,
@@ -18,13 +18,13 @@ import {
   updateActiveFile
 } from '../../util/state-changes'
 
-class RFDropzoneContainer extends Component {
+class RFDropzone extends Component {
   constructor() {
     super()
     this.state = {
       uploading: false,
       queue: [],
-      failedUploads: []
+      erroredFiles: []
     }
     this.dropzoneRef = React.createRef()
     this.progressBarAutocompleteInterval
@@ -50,7 +50,7 @@ class RFDropzoneContainer extends Component {
     const { validFiles, invalidFiles } = validate(files, this.props)
 
     this.setState(resetFailedUploads)
-    this.setState(addFilesToFailedUploads(invalidFiles))
+    this.setState(addErrors(invalidFiles))
 
     return validFiles
   }
@@ -121,7 +121,7 @@ class RFDropzoneContainer extends Component {
       request.addEventListener('load', handleRequestCompletion)
 
       request.open('POST', this.props.uploadUrl, true)
-      // request.withCredentials = true;
+      request.withCredentials = this.props.noCredentials ? false : true
       request.setRequestHeader('Content-Type', 'application/json')
       request.send(JSON.stringify({
         name: file.name,
@@ -167,7 +167,7 @@ class RFDropzoneContainer extends Component {
 
   handleUploadFailure = (file) => {
     this.setState(resetActiveFile)
-    this.setState(addFilesToFailedUploads([file]))
+    this.setState(addErrors([file]))
   }
 
   completeIndicatorGracefully = () => {
@@ -223,34 +223,66 @@ class RFDropzoneContainer extends Component {
   }
 
   removeFile = (fileToRemove) => {
+    const _this = this
     const request = new XMLHttpRequest()
 
-    request.addEventListener('load', (e) => {
-      const responseStatus = e.currentTarget.status
+    this.updateFileInFormValues(fileToRemove, 'status', 'REMOVING')
 
-      if (responseStatus >= 200 && responseStatus < 300) {
-        this.removeFileFromFormValues(fileToRemove)
-      }
-    })
-
+    request.addEventListener('load', handleRequestCompletion)
     request.open('DELETE', `${this.props.uploadUrl}/${fileToRemove.name}`, true)
-    request.withCredentials = true
+    request.withCredentials = this.props.noCredentials ? false : true
     request.send()
+
+    function handleRequestCompletion(e) {
+      const responseStatus = e.currentTarget.status
+      if (responseStatus >= 200 && responseStatus < 300) {
+        _this.removeFileFromFormValues(fileToRemove)
+      } else {
+        _this.updateFileInFormValues(fileToRemove, 'status', 'UPLOADED')
+        _this.setState(addErrors({ ...fileToRemove, action: 'REMOVE' }))
+      }
+    }
   }
 
   removeFileFromFormValues = (fileToRemove) => {
+    console.log('@removeFileFromFormValues', fileToRemove)
     const field = this.props.input
     const target = field.value
     const targetProp = this.props.targetProp
 
     if (targetProp) {
-      const targetWithFileRemoved = {
+      field.onChange({
         ...target,
         [targetProp]: target[targetProp].filter(file => file.name !== fileToRemove.name)
-      };
-      field.onChange(targetWithFileRemoved);
+      })
     } else {
-      field.onChange(file);
+      field.onChange(target.filter(file => file.name !== fileToRemove.name))
+    }
+  }
+
+  updateFileInFormValues = (fileToUpdate, key, value) => {
+    console.log('@updateFileInFormValues', fileToUpdate)
+    const field = this.props.input
+    const target = field.value
+    const targetProp = this.props.targetProp
+
+    if (targetProp) {
+      field.onChange({
+        ...target,
+        [targetProp]: updateTarget(target[targetProp])
+      })
+    } else {
+      field.onChange(updateTarget(target))
+    }
+
+    function updateTarget(filesArray) {
+      return filesArray.map(file => {
+        if (file.name === fileToUpdate.name) {
+          return { ...fileToUpdate, [key]: value }
+        } else {
+          return file
+        }
+      })
     }
   }
 
@@ -322,7 +354,6 @@ class RFDropzoneContainer extends Component {
           </label>
         }
         <Dropzone
-          name={input.name}
           className="dropzone"
           accept={acceptedFileFormats}
           disabled={error || warning || disabled}
@@ -335,8 +366,8 @@ class RFDropzoneContainer extends Component {
           {this.renderDropzoneContent()}
         </Dropzone>
         {this.renderFileRestrictions()}
-        {this.state.failedUploads.length > 0 &&
-          <UploadErrors failedUploads={this.state.failedUploads} />
+        {this.state.erroredFiles.length > 0 &&
+          <Errors erroredFiles={this.state.erroredFiles} />
         }
       </div>
     )
@@ -356,4 +387,4 @@ class RFDropzoneContainer extends Component {
   // uploadFn: PropTypes.func.isRequired
 // };
 
-export default RFDropzoneContainer
+export default RFDropzone

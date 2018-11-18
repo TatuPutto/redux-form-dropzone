@@ -76,20 +76,19 @@ class File extends PureComponent {
               <span className="fas fa-external-link-alt ml-2" />
             }
           </a>
-
           {this.renderUploadStatusIndicator()}
         </span>
 
         {!file.status || file.status === 'UPLOADED' ?
-          <button className="dropzone-file-action-btn dropzone-remove-file-btn" onClick={() => this.props.removeFile(file)}>
+          <button type="button" className="dropzone-file-action-btn dropzone-remove-file-btn" onClick={() => this.props.removeFile(file)}>
               <span className="far fa-trash-alt"></span>
           </button>
           : file.status && file.status === 'UPLOADING' ?
-            <button className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.removeFile(file)}>
+            <button type="button" className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.removeFile(file)}>
                 <span className="fas fa-times"></span>
             </button>
             : file.status && file.status === 'RETRIABLE' ?
-              <button className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.retry(file)}>
+              <button type="button" className="dropzone-file-action-btn dropzone-cancel-upload-btn" onClick={() => this.props.retry(file)}>
                   <span className="fas fa-sync"></span>
               </button>
               :

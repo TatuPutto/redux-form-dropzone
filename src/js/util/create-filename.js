@@ -1,9 +1,20 @@
-const createFilename = (file, filenameOverride) => {
-  console.log('filenameOverride: ' + filenameOverride);
-  let filename = filenameOverride ? filenameOverride : file.name
-  console.log('@createFilename: ' + filename);
+import appendRunningNumberToFilename from './create-running-number';
+
+const createFilename = (file, fileNumber, props) => {
+  let filename
+
+  if (props.filenameOverride) {
+    filename = props.filenameOverride
+  }
+
+  if (props.addRunningNumberToFilenames) {
+    const uploadedFiles = props.targetProp ? props.input.value[props.targetProp] : props.input.value
+    filename = appendRunningNumberToFilename(filename, uploadedFiles, fileNumber)
+  }
+
   filename = appendFileExtensionToFilenameIfAbsent(filename, getFileExtension(file))
   filename = sanitizeFilename(filename)
+
   return filename
 }
 

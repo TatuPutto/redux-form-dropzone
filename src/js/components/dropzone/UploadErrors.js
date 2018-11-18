@@ -19,7 +19,7 @@ const UploadErrors = ({ dismiss, failedUploads }) => (
         {'Seuraavien tiedostojen lähettäminen ei onnistunut:'}
         <ul className="mt-2 mb-1">
           {failedUploads.map((file, i) => (
-            <li className="mt-2">
+            <li key={file.name} className="mt-2">
               <span className="font-weight-bold">
                 {file.name}
               </span>

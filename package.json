@@ -4,8 +4,7 @@
   "description": "Redux form compatible dropzone component build on top of react-dropzone",
   "main": "./lib/index.js",
   "scripts": {
-    "start": "node_modules/.bin/webpack-dev-server",
-    "prepublish": "webpack --config webpack.config.prod.js"
+    "start": "node_modules/.bin/webpack-dev-server"
   },
   "repository": {
     "type": "git",
@@ -23,14 +22,20 @@
   },
   "homepage": "https://github.com/TatuPutto/redux-form-dropzone#readme",
   "devDependencies": {
-    "@babel/core": "^7.1.2",
-    "@babel/plugin-proposal-class-properties": "^7.1.0",
-    "@babel/preset-env": "^7.1.0",
-    "@babel/preset-react": "^7.0.0",
-    "babel-loader": "^8.0.4",
+    "babel-core": "^6.26.3",
+    "babel-eslint": "^8.2.6",
+    "babel-loader": "^7.1.4",
+    "babel-plugin-transform-react-constant-elements": "^6.23.0",
+    "babel-plugin-transform-react-remove-prop-types": "^0.4.13",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-react": "^6.24.1",
+    "babel-preset-stage-2": "^6.24.1",
     "css-loader": "^1.0.0",
+    "eslint": "^4.19.1",
+    "eslint-plugin-babel": "^5.1.0",
+    "eslint-plugin-import": "^2.12.0",
+    "eslint-plugin-react": "^7.9.1",
     "file-loader": "^2.0.0",
-    "get-l10n": "^1.0.4",
     "html-loader": "^0.5.5",
     "html-webpack-plugin": "^3.2.0",
     "prop-types": "^15.6.2",
@@ -44,7 +49,7 @@
     "webpack-cli": "^3.1.2",
     "webpack-dev-server": "^3.1.9"
   },
-  "dependencies": {
+  "peer-dependencies": {
     "react-dropzone": "^6.2.4"
   }
 }

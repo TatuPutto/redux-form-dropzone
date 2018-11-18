@@ -4,19 +4,24 @@ import PropTypes from 'prop-types'
 // import AlertBlock from './AlertBlock';
 import Dropzone from 'react-dropzone'
 // import Loading from './Loading';
-import l10n from 'get-l10n'
+import l10n from '../../util/l10n'
 // import attachmentService from '../../state/services/attachment.service';
 // import clone from 'clone';
 
 // import cn from 'classnames';
-import createFilename from '../../create-filename'
+import createFilename from '../../util/create-filename'
+import validate from '../../util/validate'
 
 import Files from './Files'
 import QueuedFiles from './QueuedFiles'
 
 import UploadErrors from './UploadErrors'
 
-let i = 0;
+import {
+  addFilesToFailedUploads,
+  addFilesToQueue,
+  resetFailedUploads
+} from '../../util/state-changes'
 
 class RFDropzone extends React.Component {
   constructor() {
@@ -27,139 +32,89 @@ class RFDropzone extends React.Component {
       failedUploads: [],
       uploading: false
     };
+    this.amountOfFilesToProcess = 0;
     this.dropzoneRef = React.createRef();
   }
 
   toggleUploadingStatus = () => {
-    this.setState({ uploading: !this.state.uploading })
+    this.setState({ uploading: !this.state.uploading });
   }
 
   validateFiles = (files) => {
-    const { acceptedFileFormats, targetProp, input, maxFileSize } = this.props;
+    const { validFiles, invalidFiles } = validate(files, this.props)
 
-    return files.filter(file => {
-      if (fileHasWrongFileType(file)) {
-        this.addFileToFailedUploads({
-          name: file.name,
-          status: 'DECLINED',
-          error: l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.')
-        })
-        return false
-      }
+    this.setState(resetFailedUploads)
+    this.setState(addFilesToFailedUploads(invalidFiles))
 
-      if (fileExceedsMaximunSizeLimit(file)) {
-        this.addFileToFailedUploads({
-          name: file.name,
-          status: 'DECLINED',
-          error: l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.')
-        })
-        return false
-      }
-
-      if (filenameAlreadyInUse(file)) {
-        this.addFileToFailedUploads({
-          name: file.name,
-          status: 'DECLINED',
-          error: l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.')
-        })
-        return false
-      }
-
-      return true
-    })
-
-    function fileHasWrongFileType(file) {
-      return !file || acceptedFileFormats && acceptedFileFormats.includes(file.type)
-      // if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
-        // const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
-        // this.setValidationError(error);
-        // return false;
-        // return error;
-      // }
-    }
-
-    function fileExceedsMaximunSizeLimit(file) {
-      return maxFileSize && file.size > maxFileSize
-    }
-
-    function filenameAlreadyInUse(file) {
-      const files = targetProp ? input.value[targetProp] : input.value
-      // const sanitizedFilename = attachmentService.sanitizeFilename(file.name);
-
-      console.log();
-
-      return files.some(existingFile => existingFile.name === file.name)
-
-      // if (files.some(existingFile => existingFile.name === file.name)) {
-      //   const error = l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.');
-      //   // this.setValidationError(error);
-      //   // return false;
-      //   return error;
-      // }
-    }
-
-    if (!file || acceptedFileFormats && acceptedFileFormats.indexOf(file.type) === -1) {
-      const error = l10n('error.wrongFileType', 'Tiedosto on väärän tyyppinen.');
-      // this.setValidationError(error);
-      // return false;
-      return error;
-    }
-
-    if (maxFileSize && file.size > maxFileSize) {
-      const error = l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.');
-      // this.setValidationError(error);
-      // return false;
-      return error;
-    }
-
-    if (attachToProp) {
-      const files = input.value[attachToProp];
-      const sanitizedFilename = attachmentService.sanitizeFilename(file.name);
-
-      if (files.some(existingFile => existingFile.name === sanitizedFilename)) {
-        const error = l10n('error.nameAlreadyInUse', 'Tiedostonimi on jo käytössä.');
-        // this.setValidationError(error);
-        // return false;
-        return error;
-      }
-    }
-
-    // this.resetValidationError();
-    // return true;
+    return validFiles
   }
 
-  resetFailedUploads = () => {
-    return new Promise(resolve => {
-      this.setState({ failedUploads: [] }, resolve)
-    })
+  // resetFailedUploads = () => {
+  //   // return new Promise(resolve => {
+  //     // this.setState({ failedUploads: [] }, resolve)
+  //   // })
+  //   this.setState(resetFailedUploads);
+  // }
+
+  // retry = (file) => {
+  //   this.toggleUploadingStatus()
+  //   this.addFilesToQueue(file)
+  // }
+
+  handleDrop = (acceptedFiles, rejectedFiles) => {
+    const files = [].concat(acceptedFiles, rejectedFiles)
+    const validFiles = this.validateFiles(files, this.props)
+
+    this.amountOfFilesToProcess = validFiles.length;
+
+    this.prepareFiles(validFiles)
+      .then(() => this.setState(addFilesToQueue, this.processQueue))
+
+
+    // this.resetFailedUploads(() => {
+    //
+    // })
+
+    // const validAndInvalidFiles = this.validateFiles(files)
+
+
+
+
+    // this.toggleUploadingStatus()
+    // this.resetFailedUploads()
+    //   .then(() => {
+    //     const validFiles = this.validateFiles(files)
+    //     this.amountOfFilesToProcess = validFiles.length;
+    //   })
+    //   .then(this.prepareFiles)
+    //   .then(this.addFilesToQueue)
+      // .then((preparedFiles) => {
+      //   console.log('Files prepared successfully', preparedFiles.map((file) => {
+      //     return file.name
+      //   }));
+      // })
+      // .then(this.addFilesToQueue)
+
+      // this.prepareFilesForStorage(validFiles)
+
+    //   return Promise.all(prepareFilesForStorage)
+    //     .then(this.addFilesToQueue)
+    //   // const prepareFilesForStorage = validFiles.map(file => this.prepareFileForStorage(file))
+    //   // return Promise.all(prepareFilesForStorage)
+    //   //   .then(this.addFilesToQueue)
+    // })
   }
 
-  retry = (file) => {
-    this.toggleUploadingStatus()
-    this.addFilesToQueue(file)
-  }
+  // addFilesToQueue = (files) => {
+  //   if (!files.length) return;
+  //   this.setState({ queue: this.state.queue.concat(files) }, () => {
+  //     console.log('added files to queue', this.state.queue)
+  //     this.processQueue()
+  //   });
+  // }
 
-  handleDrop = (files) => {
-    this.resetFailedUploads().then(() => {
-      const validFiles = this.validateFiles(files)
-
-      this.toggleUploadingStatus();
-
-      const prepareFilesForStorage = validFiles.map(file => this.prepareFileForStorage(file))
-      return Promise.all(prepareFilesForStorage)
-        .then(this.addFilesToQueue)
-    })
-  }
-
-  addFilesToQueue = (files) => {
-    this.setState({ queue: this.state.queue.concat(files) }, () => {
-      console.log('added files to queue', this.state.queue)
-      this.processQueue()
-    });
-  }
-
-  // pipeline endpoint
   processQueue = () => {
+    console.log('@processQueue', this.state);
     if (this.queueIsProcessed()) {
       console.log('Queue is empty - updating form values');
       // this.emptyQueue(this.updateFormValues(this.state.queue))
@@ -171,7 +126,7 @@ class RFDropzone extends React.Component {
 
   processNextFileInQueue = () => {
     this.takeFirstFileFromQueueAndSetIsAsActive()
-      .then(this.uploadActiveFile)
+      // .then(this.uploadActiveFile)
       .then(this.addFileToFormValues)
       .then(this.resetActiveFile)
       .catch(this.handleProcessingFailure)
@@ -346,13 +301,6 @@ class RFDropzone extends React.Component {
     })
   }
 
-
-
-  // getFilePositionInQueue = (fileToFind) => {
-  //   const queue = this.state.queue;
-  //   return queue.findIndex(queuedItem => queuedItem === fileToFind.name);
-  // }
-
   emptyQueue = (cb) => {
     this.setState({ queue: [] }, cb);
   }
@@ -495,24 +443,37 @@ class RFDropzone extends React.Component {
     return field.onChange(targetCopy)
   }
 
-  prepareFileForStorage = (file) => {console.log('@prepareFileForStorage', this.props);
-    const fileReader = new FileReader();
+  prepareFiles = (files) => {console.log('@prepareFileForStorage', this.props);
+    const filePreparationPromises = files.map((file, i) => this.prepareFile(file, i));
+    return Promise.all(filePreparationPromises);
+  }
 
+  prepareFile = (file, fileNumber) => {
+    const fileReader = new FileReader();
     return new Promise(resolve => {
       fileReader.onload = (event) => {
-        const base64EncodedContent = event.target.result.split(',')[1];
-        resolve({
-          name: createFilename(file, this.props.filenameOverride),
-          type: file.type,
-          preview: file.preview,
-          content: base64EncodedContent,
-          status: 'PENDING'
-        });
-      };
-
+        if (this.props.onLoadSuccess) {
+          this.props.onLoadSuccess(event, file, fileNumber, resolve)
+        } else {
+          this.createFile(event, file, fileNumber, resolve)
+        }
+      }
       fileReader.readAsDataURL(file);
     });
   }
+
+  createFile = (event, file, fileNumber, resolve) => {
+    const base64EncodedContent = event.target.result.split(',')[1];
+    resolve({
+      name: createFilename(file, fileNumber, this.props),
+      type: file.type,
+      preview: file.preview,
+      content: base64EncodedContent,
+      status: 'PENDING'
+    });
+  };
+
+
 
   createFileRows = () => {
     const files = this.props.input.value[this.props.targetProp];
@@ -561,7 +522,7 @@ class RFDropzone extends React.Component {
         <Dropzone
           name={input.name}
           className="dropzone"
-
+          accept={"image/jpeg, image/png, application/pdf"}
           disabled={error || warning || disabled}
           disableClick={true}
           multiple={true || false}

@@ -120,14 +120,10 @@ class File extends PureComponent {
   }
 }
 
-File.defaultProps = {
-  showPreview: true
-}
-
 File.propTypes = {
   file: object.isRequired,
   removeFile: func.isRequired,
-  showPreview: bool
+  showPreview: bool.isRequired
 }
 
-export default File;
+export default File

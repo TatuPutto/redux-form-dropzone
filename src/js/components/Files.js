@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react'
-import { array, func } from 'prop-types'
+import { array, bool, func } from 'prop-types'
 import File from './File'
 
 class Files extends PureComponent {
@@ -11,6 +11,7 @@ class Files extends PureComponent {
             <File
               key={file.name}
               file={file}
+              disabled={this.props.disabled}
               removeFile={this.props.removeFile}
             />
           ))}
@@ -21,6 +22,7 @@ class Files extends PureComponent {
 }
 
 Files.propTypes = {
+  disabled: bool.isRequired,
   files: array.isRequired,
   removeFile: func.isRequired
 }

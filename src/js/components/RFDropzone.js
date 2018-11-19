@@ -1,12 +1,12 @@
-import React, { Component, Fragment } from 'react'
-import PropTypes from 'prop-types'
+import React, { Component, Fragment, isValidElement } from 'react'
+import { bool, func, number, object, oneOfType, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import Errors from './Errors'
 import Files from './Files'
 import QueuedFiles from './QueuedFiles'
-import createFilename from '../../util/create-filename'
-import l10n from '../../util/l10n'
-import validate from '../../util/validate'
+import createFilename from '../util/create-filename'
+import l10n from '../util/l10n'
+import validate from '../util/validate'
 
 import {
   addErrors,
@@ -14,20 +14,37 @@ import {
   resetActiveFile,
   resetFailedUploads,
   setFirstQueuedFileAsActive,
+  toggleFetchingStatus,
   toggleUploadingStatus,
   updateActiveFile
-} from '../../util/state-changes'
+} from '../util/state-changes'
 
 class RFDropzone extends Component {
-  constructor() {
-    super()
+  constructor(props) {
+    super(props)
     this.state = {
+      fetching: props.getFilesOnMount ? true : false,
       uploading: false,
       queue: [],
-      erroredFiles: []
+      erroredFiles: [],
     }
     this.dropzoneRef = React.createRef()
     this.progressBarAutocompleteInterval
+  }
+
+  componentDidMount() {
+    if (this.props.getFilesOnMount) {
+      this.getFiles()
+    }
+  }
+
+  getFiles = () => {
+    this.props.getFilesOnMount().then(files => {
+      this.setState(toggleFetchingStatus)
+      if (files.length) {
+        this.addFilesToFormValues(files)
+      }
+    })
   }
 
   openFileDialog = () => {
@@ -40,7 +57,7 @@ class RFDropzone extends Component {
 
     if (validFiles.length) {
       this.setState(toggleUploadingStatus)
-      this.prepareFiles(validFiles).then((preparedFiles) => {
+      this.prepareFiles(validFiles).then(preparedFiles => {
         this.setState(addFilesToQueue(preparedFiles), this.processQueue)
       })
     }
@@ -64,24 +81,20 @@ class RFDropzone extends Component {
     const fileReader = new FileReader()
     return new Promise(resolve => {
       fileReader.onload = (event) => {
-        if (this.props.onLoadSuccess) {
-          this.props.onLoadSuccess(event, file, fileNumber, resolve)
+        if (this.props.onFileReadSuccess) {
+          this.props.onFileReadSuccess(event, file, fileNumber, resolve)
         } else {
-          this.createFile(event, file, fileNumber, resolve)
+          const base64EncodedContent = event.target.result.split(',')[1]
+          resolve({
+            name: createFilename(file, fileNumber, this.props),
+            type: file.type,
+            preview: file.preview,
+            content: base64EncodedContent,
+            status: 'PENDING'
+          })
         }
       }
       fileReader.readAsDataURL(file)
-    })
-  }
-
-  createFile = (event, file, fileNumber, resolve) => {
-    const base64EncodedContent = event.target.result.split(',')[1]
-    resolve({
-      name: createFilename(file, fileNumber, this.props),
-      type: file.type,
-      preview: file.preview,
-      content: base64EncodedContent,
-      status: 'PENDING'
     })
   }
 
@@ -97,7 +110,7 @@ class RFDropzone extends Component {
     this.setState(resetActiveFile)
     this.setState(setFirstQueuedFileAsActive, () => {
       this.uploadActiveFile()
-        .then(this.addFileToFormValues)
+        .then(this.addFilesToFormValues)
         .catch(this.handleUploadFailure)
         .finally(this.processQueue)
     })
@@ -115,11 +128,8 @@ class RFDropzone extends Component {
       let progressEventsFired = 0
 
       request.upload.addEventListener('progress', handleUploadProgress)
-
       request.upload.addEventListener('load', handleUploadCompletion)
-
       request.addEventListener('load', handleRequestCompletion)
-
       request.open('POST', this.props.uploadUrl, true)
       request.withCredentials = this.props.noCredentials ? false : true
       request.setRequestHeader('Content-Type', 'application/json')
@@ -129,17 +139,14 @@ class RFDropzone extends Component {
         content: file.content
       }))
 
-
       function handleUploadProgress(e) {
         if (progressEventsFired === 0 && e.loaded === e.total) {
           completedBeforeFirstProgressEvent = true
         } else {
           const progressPercentage = e.progress / e.total * 100
-
-          // Leave little room for server side processes
-          if (progressPercentage >= 80) {
-            _this.setState(updateActiveFile('progress', 80))
-          } else {
+          const clientSideThreshold = this.props.serverSideThreshold ?
+            (this.props.serverSideThreshold - 100) : 80
+          if (progressPercentage <= clientSideThreshold) {
             _this.setState(updateActiveFile('progress', progressPercentage))
           }
         }
@@ -147,18 +154,18 @@ class RFDropzone extends Component {
 
       function handleUploadCompletion() {
         if (completedBeforeFirstProgressEvent) {
-          _this.completeIndicatorGracefully()
+          _this.autocompleteClientSidePartOfRequestProgressBar()
         }
       }
 
       function handleRequestCompletion(e) {
         const responseStatus = e.currentTarget.status
         if (responseStatus >= 200 && responseStatus < 300) {
-          _this.completeServerSideThreshold()
+          _this.autocompleteServerSidePartOfRequestProgressBar()
             .then(() => _this.props.onSuccess(file) || Promise.resolve())
             .then(location => resolve({ ...file, status: 'UPLOADED', location }))
         } else {
-          clearInterval(_this.uploadInterval)
+          clearInterval(_this.progressBarAutocompleteInterval)
           reject({ ...file, status: 'DECLINED' })
         }
       }
@@ -170,7 +177,7 @@ class RFDropzone extends Component {
     this.setState(addErrors([file]))
   }
 
-  completeIndicatorGracefully = () => {
+  autocompleteClientSidePartOfRequestProgressBar = () => {
     let progressPercentage = 0
     return new Promise(resolve => {
       this.progressBarAutocompleteInterval = setInterval(() => {
@@ -185,7 +192,7 @@ class RFDropzone extends Component {
     })
   }
 
-  completeServerSideThreshold = () => {
+  autocompleteServerSidePartOfRequestProgressBar = () => {
     const serverSideThreshold = this.props.serverSideThreshold || 20
     const progressPercentage = this.state.activeFile.progress
     let iterations = 0
@@ -207,16 +214,19 @@ class RFDropzone extends Component {
     })
   }
 
-  addFileToFormValues = (processedFile) => {
+  addFilesToFormValues = (files) => {
+    files = Array.isArray(files) ? files : [files]
     const field = this.props.input
     const target = field.value
     const targetCopy = JSON.parse(JSON.stringify(target))
     const targetProp = this.props.targetProp
 
     if (targetProp) {
-      targetCopy[targetProp].push(processedFile)
+      targetCopy[targetProp] ?
+        targetCopy[targetProp].concat(files) :
+        targetCopy[targetProp] = files
     } else {
-      targetCopy.push(processedFile)
+      targetCopy.concat(files)
     }
 
     return field.onChange(targetCopy)
@@ -245,7 +255,6 @@ class RFDropzone extends Component {
   }
 
   removeFileFromFormValues = (fileToRemove) => {
-    console.log('@removeFileFromFormValues', fileToRemove)
     const field = this.props.input
     const target = field.value
     const targetProp = this.props.targetProp
@@ -261,7 +270,6 @@ class RFDropzone extends Component {
   }
 
   updateFileInFormValues = (fileToUpdate, key, value) => {
-    console.log('@updateFileInFormValues', fileToUpdate)
     const field = this.props.input
     const target = field.value
     const targetProp = this.props.targetProp
@@ -286,8 +294,31 @@ class RFDropzone extends Component {
     }
   }
 
+  renderLabel = () => {
+    const { includeErrorIcon, label, meta: { error, warning } } = this.props
+
+    if (label && typeof label === 'string') {
+      return (
+        <label className="upper-label">
+          {(includeErrorIcon && (error || warning)) &&
+            <span className="fas fa-asterisk text-warning" />
+          }
+          {label}
+        </label>
+      )
+    } else if (label && typeof label === 'function') {
+      return label()
+    } else if (label && isValidElement(label)) {
+      return <label />
+    } else {
+      return null
+    }
+  }
+
   renderDropzoneContent = () => {
-    const files = this.props.input.value[this.props.targetProp]
+    const { input, targetProp, disabled } = this.props
+    const files = targetProp ? input.value[targetProp] || [] : input.value
+
     return (
       <Fragment>
         <div className="dropzone-file-select truncate-text">
@@ -303,17 +334,26 @@ class RFDropzone extends Component {
             tai pudota tiedosto tähän
           </span>
         </div>
-        <Files files={files} removeFile={this.removeFile} retry={this.retry} />
+        {files.length > 0 &&
+          <Files
+            files={files}
+            disabled={disabled}
+            removeFile={this.removeFile}
+          />
+        }
         {this.state.uploading && this.state.activeFile &&
-          <QueuedFiles activeFile={this.state.activeFile} pendingFiles={this.state.queue} />
+          <QueuedFiles
+            activeFile={this.state.activeFile}
+            pendingFiles={this.state.queue}
+          />
         }
       </Fragment>
     )
   }
 
   renderFileRestrictions = () => {
-    const { includeAllowedExtensionsLegend, maxFileSize } = this.props
-    if (includeAllowedExtensionsLegend && maxFileSize) {
+    const { includeFileRestrictionsLegend, maxFileSize } = this.props
+    if (includeFileRestrictionsLegend && maxFileSize) {
       return (
         <small className="text-muted text-nowrap">
           {l10n(
@@ -331,30 +371,21 @@ class RFDropzone extends Component {
 
   render() {
     const {
-      acceptedFileFormats = "image/jpeg, image/png, application/pdf",
-      // className = "dropzone",
-      disabled = false,
-      includeAllowedExtensionsLegend = false,
-      includeErrorIcon = false,
-      input,
-      label,
-      maxFileSize,
       meta: { error, warning },
-      // style = { width: "18rem" }
-    } = this.props;
+      acceptedFileFormats,
+      className,
+      disabled,
+    } = this.props
+
+    if (this.state.fetching) {
+      return <div>Ladataan...</div>
+    }
 
     return (
       <div>
-        {label &&
-          <label className="upper-label">
-            {(includeErrorIcon && (error || warning)) &&
-              <span className="fas fa-asterisk text-warning" />
-            }
-            {label}
-          </label>
-        }
+        {this.renderLabel()}
         <Dropzone
-          className="dropzone"
+          className={className}
           accept={acceptedFileFormats}
           disabled={error || warning || disabled}
           disableClick={true}
@@ -374,17 +405,33 @@ class RFDropzone extends Component {
   }
 }
 
-// RFDropzone.propTypes = {
-  // acceptedFileFormats: PropTypes.string,
-  // className: PropTypes.string,
-  // disabled: PropTypes.bool,
-  // includeAllowedExtensionsLegend: PropTypes.bool,
-  // includeErrorIcon: PropTypes.bool,
-  // input: PropTypes.object.isRequired,
-  // label: PropTypes.string,
-  // meta: PropTypes.object,
+RFDropzone.defaultProps = {
+  acceptedFileFormats: 'image/jpeg, image/png, application/pdf',
+  className: 'dropzone',
+  disabled: false,
+  includeErrorIcon: false,
+  includeFileRestrictionsLegend: false,
+  maxFileSize: undefined,
+  showPreview: true,
+}
+
+RFDropzone.propTypes = {
+  input: object.isRequired,
+  meta: object.isRequired,
+  uploadUrl: string.isRequired,
+  acceptedFileFormats: string,
+  className: string,
+  disabled: bool,
+  getFilesOnMount: func,
+  includeErrorIcon: bool,
+  includeFileRestrictionsLegend: bool,
+  label: oneOfType([func, string]),
+  maxFileSize: number,
+  onFileReadSuccess: func,
+  targetProp: string,
+  noCredentials: bool,
   // style: PropTypes.object,
   // uploadFn: PropTypes.func.isRequired
-// };
+}
 
 export default RFDropzone

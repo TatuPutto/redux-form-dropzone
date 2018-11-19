@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react'
-import l10n from '../../util/l10n'
+import l10n from '../util/l10n'
 
 const Errors = ({ dismiss, erroredFiles }) => (
   <div className="alert alert-danger mt-2">

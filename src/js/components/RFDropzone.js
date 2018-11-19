@@ -4,9 +4,9 @@ import Dropzone from 'react-dropzone'
 import Errors from './Errors'
 import Files from './Files'
 import QueuedFiles from './QueuedFiles'
-import createFilename from '../../util/create-filename'
-import l10n from '../../util/l10n'
-import validate from '../../util/validate'
+import createFilename from '../util/create-filename'
+import l10n from '../util/l10n'
+import validate from '../util/validate'
 
 import {
   addErrors,
@@ -17,7 +17,7 @@ import {
   toggleFetchingStatus,
   toggleUploadingStatus,
   updateActiveFile
-} from '../../util/state-changes'
+} from '../util/state-changes'
 
 class RFDropzone extends Component {
   constructor(props) {
@@ -39,14 +39,12 @@ class RFDropzone extends Component {
   }
 
   getFiles = () => {
-    this.props.getFiles()
-      .then(files => {
-        console.log(files)
-        this.setState(toggleFetchingStatus)
-        if (files.length) {
-          this.addFilesToFormValues(files)
-        }
-      })
+    this.props.getFiles().then(files => {
+      this.setState(toggleFetchingStatus)
+      if (files.length) {
+        this.addFilesToFormValues(files)
+      }
+    })
   }
 
   openFileDialog = () => {
@@ -59,7 +57,7 @@ class RFDropzone extends Component {
 
     if (validFiles.length) {
       this.setState(toggleUploadingStatus)
-      this.prepareFiles(validFiles).then((preparedFiles) => {
+      this.prepareFiles(validFiles).then(preparedFiles => {
         this.setState(addFilesToQueue(preparedFiles), this.processQueue)
       })
     }
@@ -130,11 +128,8 @@ class RFDropzone extends Component {
       let progressEventsFired = 0
 
       request.upload.addEventListener('progress', handleUploadProgress)
-
       request.upload.addEventListener('load', handleUploadCompletion)
-
       request.addEventListener('load', handleRequestCompletion)
-
       request.open('POST', this.props.uploadUrl, true)
       request.withCredentials = this.props.noCredentials ? false : true
       request.setRequestHeader('Content-Type', 'application/json')
@@ -144,17 +139,14 @@ class RFDropzone extends Component {
         content: file.content
       }))
 
-
       function handleUploadProgress(e) {
         if (progressEventsFired === 0 && e.loaded === e.total) {
           completedBeforeFirstProgressEvent = true
         } else {
           const progressPercentage = e.progress / e.total * 100
-
-          // Leave little room for server side processes
-          if (progressPercentage >= 80) {
-            _this.setState(updateActiveFile('progress', 80))
-          } else {
+          const clientSideThreshold = this.props.serverSideThreshold ?
+            (this.props.serverSideThreshold - 100) : 80
+          if (progressPercentage <= clientSideThreshold) {
             _this.setState(updateActiveFile('progress', progressPercentage))
           }
         }
@@ -162,18 +154,18 @@ class RFDropzone extends Component {
 
       function handleUploadCompletion() {
         if (completedBeforeFirstProgressEvent) {
-          _this.completeIndicatorGracefully()
+          _this.autocompleteClientSidePartOfRequestProgressBar()
         }
       }
 
       function handleRequestCompletion(e) {
         const responseStatus = e.currentTarget.status
         if (responseStatus >= 200 && responseStatus < 300) {
-          _this.completeServerSideThreshold()
+          _this.autocompleteServerSidePartOfRequestProgressBar()
             .then(() => _this.props.onSuccess(file) || Promise.resolve())
             .then(location => resolve({ ...file, status: 'UPLOADED', location }))
         } else {
-          clearInterval(_this.uploadInterval)
+          clearInterval(_this.progressBarAutocompleteInterval)
           reject({ ...file, status: 'DECLINED' })
         }
       }
@@ -185,7 +177,7 @@ class RFDropzone extends Component {
     this.setState(addErrors([file]))
   }
 
-  completeIndicatorGracefully = () => {
+  autocompleteClientSidePartOfRequestProgressBar = () => {
     let progressPercentage = 0
     return new Promise(resolve => {
       this.progressBarAutocompleteInterval = setInterval(() => {
@@ -200,7 +192,7 @@ class RFDropzone extends Component {
     })
   }
 
-  completeServerSideThreshold = () => {
+  autocompleteServerSidePartOfRequestProgressBar = () => {
     const serverSideThreshold = this.props.serverSideThreshold || 20
     const progressPercentage = this.state.activeFile.progress
     let iterations = 0

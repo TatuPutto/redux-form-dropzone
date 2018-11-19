@@ -1,9 +1,33 @@
-import React, { Fragment } from 'react'
+import React, { PureComponent, Fragment } from 'react'
+import { array, func } from 'prop-types'
 import l10n from '../util/l10n'
 
-const Errors = ({ dismiss, erroredFiles }) => (
-  <div className="alert alert-danger mt-2">
-    {erroredFiles.length === 1 ?
+class Errors extends PureComponent {
+  renderMultipleErrors = () => {
+    const { /* dismiss, */ erroredFiles } = this.props
+
+    return (
+      <Fragment>
+        {l10n('error.failedToUploadMultipleFiles', 'Seuraavien tiedostojen lähettäminen ei onnistunut')}:
+        <ul className="mt-2 mb-1">
+          {erroredFiles.map(erroredFile => (
+            <li key={erroredFile.name} className="mt-2">
+              <span className="font-weight-bold">
+                {erroredFile.name}
+              </span>
+              <br />
+              {erroredFile.error}
+            </li>
+          ))}
+          </ul>
+      </Fragment>
+    )
+  }
+
+  renderSingularError = () => {
+    const { /* dismiss, */ erroredFiles } = this.props
+
+    return (
       <Fragment>
         <div className="font-weight-bold">
           {erroredFiles[0].action === 'REMOVE' ?
@@ -23,31 +47,32 @@ const Errors = ({ dismiss, erroredFiles }) => (
               )}
             </Fragment>
           }
-          {l10n(
-            'error.failedToUpload',
-            '"{0}" lähettäminen epäonnistui.',
-            [erroredFiles[0].name]
-          )}
         </div>
         {erroredFiles[0].error}
       </Fragment>
-      :
-      <Fragment>
-        {'Seuraavien tiedostojen lähettäminen ei onnistunut:'}
-        <ul className="mt-2 mb-1">
-          {erroredFiles.map(erroredFile => (
-            <li key={erroredFile.name} className="mt-2">
-              <span className="font-weight-bold">
-                {erroredFile.name}
-              </span>
-              <br />
-              {erroredFile.error}
-            </li>
-          ))}
-          </ul>
-      </Fragment>
-    }
-  </div>
-)
+    )
+  }
+
+  render() {
+    return (
+      <div className="alert alert-danger mt-2">
+        {this.props.erroredFiles.length === 1 ?
+          <Fragment>
+            {this.renderSingularError()}
+          </Fragment>
+          :
+          <Fragment>
+            {this.renderMultipleErrors()}
+          </Fragment>
+        }
+      </div>
+    )
+  }
+}
+
+Errors.propTypes = {
+  erroredFiles: array.isRequired,
+  dismiss: func,
+}
 
 export default Errors

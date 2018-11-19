@@ -4,9 +4,11 @@ import { bool, func, object } from 'prop-types'
 class File extends PureComponent {
   renderPreview = () => {
     const { file, showPreview } = this.props
-    let preview = null;
+    let preview = null
 
-    if (/*!showPreview || */!file.type) return null
+    if (!showPreview || !file.type) {
+      return preview
+    }
 
     if (file.type.includes('png') || file.type.includes('jpeg')) {
       preview = <img className="dropzone-file-preview" src={file.preview} />
@@ -22,6 +24,22 @@ class File extends PureComponent {
       <div className="dropzone-file-preview-container">
         {preview}
       </div>
+    )
+  }
+
+  renderFileContent = () => {
+    const file = this.props.file
+
+    return (
+      <span className="dropzone-file-content truncate-text">
+        <a href={file.location} target="_blank">
+          {file.name}
+          {file.location &&
+            <span className="fas fa-external-link-alt ml-2" />
+          }
+        </a>
+        {this.renderUploadStatusIndicator()}
+      </span>
     )
   }
 
@@ -74,7 +92,7 @@ class File extends PureComponent {
         </button>
       )
     } else if (file.status && file.status === 'UPLOADING') {
-      return (
+      /*return (
         <button
           type="button"
           className="dropzone-file-action-btn dropzone-cancel-upload-btn"
@@ -82,7 +100,8 @@ class File extends PureComponent {
         >
           <span className="far fa-trash-alt" />
         </button>
-      )
+      )*/
+      return null
     } else if (file.status && file.status === 'REMOVING') {
       return (
         <button
@@ -90,8 +109,7 @@ class File extends PureComponent {
           className="dropzone-file-action-btn dropzone-remove-file-btn"
           style={{cursor: 'not-allowed'}}
         >
-          <span className="fas fa-spinner fa-pulse fa-spin mr-1" />
-          Poistetaan...
+          <span className="fas fa-spinner fa-pulse fa-spin" />
         </button>
       )
     } else {
@@ -105,15 +123,7 @@ class File extends PureComponent {
     return (
       <li key={file.name} className="dropzone-file">
         {this.renderPreview()}
-        <span className="dropzone-file-content truncate-text">
-          <a href={file.location} target="_blank">
-            {file.name}
-            {file.location &&
-              <span className="fas fa-external-link-alt ml-2" />
-            }
-          </a>
-          {this.renderUploadStatusIndicator()}
-        </span>
+        {this.renderFileContent()}
         {this.renderActionButton()}
       </li>
     )
@@ -122,8 +132,8 @@ class File extends PureComponent {
 
 File.propTypes = {
   file: object.isRequired,
-  removeFile: func.isRequired,
-  showPreview: bool.isRequired
+  showPreview: bool.isRequired,
+  removeFile: func,
 }
 
 export default File

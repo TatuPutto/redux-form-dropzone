@@ -131,7 +131,7 @@ class RFDropzone extends Component {
       request.upload.addEventListener('load', handleUploadCompletion)
       request.addEventListener('load', handleRequestCompletion)
       request.open('POST', this.props.uploadUrl, true)
-      request.withCredentials = this.props.noCredentials ? false : true
+      request.withCredentials = this.props.includeCredentials
       request.setRequestHeader('Content-Type', 'application/json')
       request.send(JSON.stringify({
         name: file.name,
@@ -174,7 +174,7 @@ class RFDropzone extends Component {
 
   handleUploadFailure = (file) => {
     this.setState(resetActiveFile)
-    this.setState(addErrors([file]))
+    this.setState(addErrors({ ...file, action: 'UPLOAD' }))
   }
 
   autocompleteClientSidePartOfRequestProgressBar = () => {
@@ -239,8 +239,9 @@ class RFDropzone extends Component {
     this.updateFileInFormValues(fileToRemove, 'status', 'REMOVING')
 
     request.addEventListener('load', handleRequestCompletion)
+    request.addEventListener('error', handleRequestFailure)
     request.open('DELETE', `${this.props.uploadUrl}/${fileToRemove.name}`, true)
-    request.withCredentials = this.props.noCredentials ? false : true
+    request.withCredentials = this.props.includeCredentials
     request.send()
 
     function handleRequestCompletion(e) {
@@ -248,9 +249,13 @@ class RFDropzone extends Component {
       if (responseStatus >= 200 && responseStatus < 300) {
         _this.removeFileFromFormValues(fileToRemove)
       } else {
-        _this.updateFileInFormValues(fileToRemove, 'status', 'UPLOADED')
-        _this.setState(addErrors({ ...fileToRemove, action: 'REMOVE' }))
+        handleRequestFailure()
       }
+    }
+
+    function handleRequestFailure() {
+      _this.updateFileInFormValues(fileToRemove, 'status', 'UPLOADED')
+      _this.setState(addErrors({ ...fileToRemove, action: 'REMOVE' }))
     }
   }
 
@@ -316,7 +321,7 @@ class RFDropzone extends Component {
   }
 
   renderDropzoneContent = () => {
-    const { input, targetProp, disabled } = this.props
+    const { input, targetProp, disabled, showPreview } = this.props
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (
@@ -327,23 +332,25 @@ class RFDropzone extends Component {
             type="button"
             onClick={() => this.openFileDialog()}
           >
-            Valitse
+            {l10n('label.select', 'Valitse')}
           </button>
           <span style={{ cursor: 'default' }}>
             {' '}
-            tai pudota tiedosto tähän
+            {l10n('label.orDropFileHere', 'tai pudota tiedosto tähän')}
           </span>
         </div>
         {files.length > 0 &&
           <Files
             files={files}
             disabled={disabled}
+            showPreview={showPreview}
             removeFile={this.removeFile}
           />
         }
         {this.state.uploading && this.state.activeFile &&
           <QueuedFiles
             activeFile={this.state.activeFile}
+            showPreview={showPreview}
             pendingFiles={this.state.queue}
           />
         }
@@ -409,6 +416,7 @@ RFDropzone.defaultProps = {
   acceptedFileFormats: 'image/jpeg, image/png, application/pdf',
   className: 'dropzone',
   disabled: false,
+  includeCredentials: true,
   includeErrorIcon: false,
   includeFileRestrictionsLegend: false,
   maxFileSize: undefined,
@@ -423,13 +431,15 @@ RFDropzone.propTypes = {
   className: string,
   disabled: bool,
   getFilesOnMount: func,
+  includeCredentials: bool,
   includeErrorIcon: bool,
   includeFileRestrictionsLegend: bool,
   label: oneOfType([func, string]),
   maxFileSize: number,
   onFileReadSuccess: func,
+  serverSideThreshold: number,
+  showPreview: bool,
   targetProp: string,
-  noCredentials: bool,
   // style: PropTypes.object,
   // uploadFn: PropTypes.func.isRequired
 }

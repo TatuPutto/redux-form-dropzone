@@ -1,6 +1,9 @@
-export const addErrors = (erroredFiles) => (state) => ({
-  erroredFiles: state.erroredFiles.concat(erroredFiles)
-})
+export const addErrors = (erroredFiles) => (state) => {
+  const erroredFilesArray = Array.isArray(erroredFiles) ? erroredFiles : [erroredFiles]
+  return {
+    erroredFiles: state.erroredFiles.concat(erroredFilesArray)
+  }
+}
 
 export const addFilesToQueue = (files) => (state) => ({
   queue: state.queue.concat(files)

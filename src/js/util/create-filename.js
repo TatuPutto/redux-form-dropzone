@@ -1,4 +1,4 @@
-import appendRunningNumberToFilename from './create-running-number';
+import appendRunningNumberToFilename from './create-running-number'
 
 const createFilename = (file, fileNumber, props) => {
   let filename
@@ -9,7 +9,7 @@ const createFilename = (file, fileNumber, props) => {
 
   if (props.addRunningNumberToFilenames) {
     const uploadedFiles = props.targetProp ? props.input.value[props.targetProp] : props.input.value
-    filename = appendRunningNumberToFilename(filename, uploadedFiles, fileNumber)
+    filename = appendRunningNumberToFilename(filename, uploadedFiles || [], fileNumber)
   }
 
   filename = appendFileExtensionToFilenameIfAbsent(filename, getFileExtension(file))
@@ -39,16 +39,16 @@ const sanitizeFilename = (str) => {
 }
 
 const replaceSpacesWithUnderscore = (str) => {
-  return str.replace(/\s/g, '_');
+  return str.replace(/\s/g, '_')
 }
 
 const replaceScandicLettersWithPlainEquivalents = (str) => {
-  const dictionary = { Ä: 'A', ä: 'a', Ö: 'O', ö: 'o' };
-  return str.replace(/[^\w ]/g, (char) => dictionary[char] || char);
+  const dictionary = { Ä: 'A', ä: 'a', Ö: 'O', ö: 'o' }
+  return str.replace(/[^\w ]/g, (char) => dictionary[char] || char)
 }
 
 const removeSpecialCharacters = (str) => {
-  return str.replace(/[^a-zA-Z0-9._-]/g, '');
+  return str.replace(/[^a-zA-Z0-9._-]/g, '')
 }
 
 export default createFilename

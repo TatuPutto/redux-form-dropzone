@@ -4,7 +4,7 @@
  */
 const createRunningNumber = (filename, uploadedFiles, fileNumber) => {
   if (uploadedFiles.length) {
-    const runningNumber = getBiggestOccurence(uploadedFiles) + fileNumber;
+    const runningNumber = getBiggestOccurence(uploadedFiles) + fileNumber
     return `${filename}-${runningNumber}`
   } else {
     return `${filename}-1`
@@ -17,7 +17,7 @@ const getBiggestOccurence = (files) => {
     const filenameWithoutExtension = file.name.split('.')[0]
     const fileNumber = filenameWithoutExtension.slice(-1)
     if (fileNumber > biggestOccurence) {
-      biggestOccurence = fileNumber;
+      biggestOccurence = fileNumber
     }
   })
   return parseInt(biggestOccurence) + 1

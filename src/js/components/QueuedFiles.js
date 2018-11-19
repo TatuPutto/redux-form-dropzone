@@ -1,4 +1,5 @@
 import React, { PureComponent } from 'react'
+import { array, bool, object } from 'prop-types'
 import File from './File'
 
 class QueuedFiles extends PureComponent {
@@ -6,18 +7,27 @@ class QueuedFiles extends PureComponent {
     return (
       <div>
         <ul className="dropzone-files">
-          <File file={this.props.activeFile} />
+          <File
+            file={this.props.activeFile}
+            showPreview={this.props.showPreview}
+          />
           {this.props.pendingFiles.map(file => (
             <File
               key={file.name}
               file={file}
-              removeFile={this.props.removeFile}
+              showPreview={this.props.showPreview}
             />
           ))}
         </ul>
       </div>
     )
   }
+}
+
+QueuedFiles.propTypes = {
+  activeFile: object.isRequired,
+  pendingFiles: array.isRequired,
+  showPreview: bool.isRequired,
 }
 
 export default QueuedFiles

@@ -1,5 +1,5 @@
-import React, { Component, Fragment } from 'react'
-import { bool, func, object, string } from 'prop-types'
+import React, { Component, Fragment, isValidElement } from 'react'
+import { bool, func, number, object, oneOfType, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import Errors from './Errors'
 import Files from './Files'
@@ -23,7 +23,7 @@ class RFDropzone extends Component {
   constructor(props) {
     super(props)
     this.state = {
-      fetching: props.getFiles ? true : false,
+      fetching: props.getFilesOnMount ? true : false,
       uploading: false,
       queue: [],
       erroredFiles: [],
@@ -33,13 +33,13 @@ class RFDropzone extends Component {
   }
 
   componentDidMount() {
-    if (this.props.getFiles) {
+    if (this.props.getFilesOnMount) {
       this.getFiles()
     }
   }
 
   getFiles = () => {
-    this.props.getFiles().then(files => {
+    this.props.getFilesOnMount().then(files => {
       this.setState(toggleFetchingStatus)
       if (files.length) {
         this.addFilesToFormValues(files)
@@ -81,8 +81,8 @@ class RFDropzone extends Component {
     const fileReader = new FileReader()
     return new Promise(resolve => {
       fileReader.onload = (event) => {
-        if (this.props.onLoadSuccess) {
-          this.props.onLoadSuccess(event, file, fileNumber, resolve)
+        if (this.props.onFileReadSuccess) {
+          this.props.onFileReadSuccess(event, file, fileNumber, resolve)
         } else {
           const base64EncodedContent = event.target.result.split(',')[1]
           resolve({
@@ -294,8 +294,29 @@ class RFDropzone extends Component {
     }
   }
 
+  renderLabel = () => {
+    const { includeErrorIcon, label, meta: { error, warning } } = this.props
+
+    if (label && typeof label === 'string') {
+      return (
+        <label className="upper-label">
+          {(includeErrorIcon && (error || warning)) &&
+            <span className="fas fa-asterisk text-warning" />
+          }
+          {label}
+        </label>
+      )
+    } else if (label && typeof label === 'function') {
+      return label()
+    } else if (label && isValidElement(label)) {
+      return <label />
+    } else {
+      return null
+    }
+  }
+
   renderDropzoneContent = () => {
-    const { input, targetProp } = this.props
+    const { input, targetProp, disabled } = this.props
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (
@@ -314,18 +335,25 @@ class RFDropzone extends Component {
           </span>
         </div>
         {files.length > 0 &&
-          <Files files={files} removeFile={this.removeFile} />
+          <Files
+            files={files}
+            disabled={disabled}
+            removeFile={this.removeFile}
+          />
         }
         {this.state.uploading && this.state.activeFile &&
-          <QueuedFiles activeFile={this.state.activeFile} pendingFiles={this.state.queue} />
+          <QueuedFiles
+            activeFile={this.state.activeFile}
+            pendingFiles={this.state.queue}
+          />
         }
       </Fragment>
     )
   }
 
   renderFileRestrictions = () => {
-    const { includeAllowedExtensionsLegend, maxFileSize } = this.props
-    if (includeAllowedExtensionsLegend && maxFileSize) {
+    const { includeFileRestrictionsLegend, maxFileSize } = this.props
+    if (includeFileRestrictionsLegend && maxFileSize) {
       return (
         <small className="text-muted text-nowrap">
           {l10n(
@@ -343,17 +371,11 @@ class RFDropzone extends Component {
 
   render() {
     const {
-      acceptedFileFormats = "image/jpeg, image/png, application/pdf",
-      // className = "dropzone",
-      disabled = false,
-      includeAllowedExtensionsLegend = false,
-      includeErrorIcon = false,
-      input,
-      label,
-      maxFileSize,
       meta: { error, warning },
-      // style = { width: "18rem" }
-    } = this.props;
+      acceptedFileFormats,
+      className,
+      disabled,
+    } = this.props
 
     if (this.state.fetching) {
       return <div>Ladataan...</div>
@@ -361,16 +383,9 @@ class RFDropzone extends Component {
 
     return (
       <div>
-        {label &&
-          <label className="upper-label">
-            {(includeErrorIcon && (error || warning)) &&
-              <span className="fas fa-asterisk text-warning" />
-            }
-            {label}
-          </label>
-        }
+        {this.renderLabel()}
         <Dropzone
-          className="dropzone"
+          className={className}
           accept={acceptedFileFormats}
           disabled={error || warning || disabled}
           disableClick={true}
@@ -390,20 +405,33 @@ class RFDropzone extends Component {
   }
 }
 
+RFDropzone.defaultProps = {
+  acceptedFileFormats: 'image/jpeg, image/png, application/pdf',
+  className: 'dropzone',
+  disabled: false,
+  includeErrorIcon: false,
+  includeFileRestrictionsLegend: false,
+  maxFileSize: undefined,
+  showPreview: true,
+}
+
 RFDropzone.propTypes = {
-
-
-
-  // acceptedFileFormats: PropTypes.string,
-  // className: PropTypes.string,
-  // disabled: PropTypes.bool,
-  // includeAllowedExtensionsLegend: PropTypes.bool,
-  // includeErrorIcon: PropTypes.bool,
-  // input: PropTypes.object.isRequired,
-  // label: PropTypes.string,
-  // meta: PropTypes.object,
+  input: object.isRequired,
+  meta: object.isRequired,
+  uploadUrl: string.isRequired,
+  acceptedFileFormats: string,
+  className: string,
+  disabled: bool,
+  getFilesOnMount: func,
+  includeErrorIcon: bool,
+  includeFileRestrictionsLegend: bool,
+  label: oneOfType([func, string]),
+  maxFileSize: number,
+  onFileReadSuccess: func,
+  targetProp: string,
+  noCredentials: bool,
   // style: PropTypes.object,
   // uploadFn: PropTypes.func.isRequired
-};
+}
 
 export default RFDropzone

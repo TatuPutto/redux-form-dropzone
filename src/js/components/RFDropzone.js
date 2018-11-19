@@ -73,7 +73,7 @@ class RFDropzone extends Component {
   }
 
   prepareFiles = (files) => {
-    const filePreparationPromises = files.map((file, i) => this.prepareFile(file, i))
+    const filePreparationPromises = files.map((file, i) => this.prepareFile(file, i + 1))
     return Promise.all(filePreparationPromises)
   }
 
@@ -221,10 +221,10 @@ class RFDropzone extends Component {
     const targetCopy = JSON.parse(JSON.stringify(target))
     const targetProp = this.props.targetProp
 
-    if (targetProp) {
-      targetCopy[targetProp] ?
-        targetCopy[targetProp].concat(files) :
-        targetCopy[targetProp] = files
+    if (targetProp && targetCopy.hasOwnProperty(targetProp)) {
+      targetCopy[targetProp] = targetCopy[targetProp].concat(files)
+    } else if (targetProp) {
+      targetCopy[targetProp] = files
     } else {
       targetCopy.concat(files)
     }

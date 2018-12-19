@@ -28,25 +28,27 @@ class File extends PureComponent {
   }
 
   renderFileContent = () => {
-    const file = this.props.file
+    const { file, disabled } = this.props
 
     return (
       <span className="dropzone-file-content truncate-text">
-        <a href={file.location} target="_blank">
+        <a href={!disabled && file.location} target="_blank">
           {file.name}
-          {file.location &&
+          {file.location && !disabled &&
             <span className="fas fa-external-link-alt ml-2" />
           }
         </a>
-        {this.renderUploadStatusIndicator()}
+        {this.renderUploadStatus()}
       </span>
     )
   }
 
-  renderUploadStatusIndicator = () => {
+  renderUploadStatus = () => {
     const file = this.props.file
 
-    if (!file.status || file.status === 'UPLOADED') return null
+    if (!file.status || file.status === 'UPLOADED') {
+      return null
+    }
 
     if (file.status === 'PENDING') {
       return (
@@ -79,13 +81,14 @@ class File extends PureComponent {
   }
 
   renderActionButton = () => {
-    const file = this.props.file
+    const { file, disabled } = this.props
 
     if (!file.status || file.status === 'UPLOADED') {
       return (
         <button
           type="button"
           className="dropzone-file-action-btn dropzone-remove-file-btn"
+          disabled={disabled}
           onClick={() => this.props.removeFile(file)}
         >
           <span className="far fa-trash-alt" />
@@ -107,6 +110,7 @@ class File extends PureComponent {
         <button
           type="button"
           className="dropzone-file-action-btn dropzone-remove-file-btn"
+          disabled={disabled}
           style={{cursor: 'not-allowed'}}
         >
           <span className="fas fa-spinner fa-pulse fa-spin" />
@@ -133,6 +137,7 @@ class File extends PureComponent {
 File.propTypes = {
   file: object.isRequired,
   showPreview: bool.isRequired,
+  disabled: bool,
   removeFile: func,
 }
 

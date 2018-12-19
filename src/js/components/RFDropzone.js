@@ -1,8 +1,10 @@
 import React, { Component, Fragment, isValidElement } from 'react'
 import { bool, func, number, object, oneOfType, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
+import classnames from 'classnames'
 import Errors from './Errors'
 import Files from './Files'
+import FileSelection from './FileSelection'
 import QueuedFiles from './QueuedFiles'
 import createFilename from '../util/create-filename'
 import l10n from '../util/l10n'
@@ -321,24 +323,17 @@ class RFDropzone extends Component {
   }
 
   renderDropzoneContent = () => {
-    const { input, targetProp, disabled, showPreview } = this.props
+    const { input, targetProp, allowMultiple, disabled, showPreview } = this.props
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (
       <Fragment>
-        <div className="dropzone-file-select truncate-text">
-          <button
-            className="dropzone-open-file-dialog-btn btn btn-outline-primary"
-            type="button"
-            onClick={() => this.openFileDialog()}
-          >
-            {l10n('label.select', 'Valitse')}
-          </button>
-          <span style={{ cursor: 'default' }}>
-            {' '}
-            {l10n('label.orDropFileHere', 'tai pudota tiedosto tähän')}
-          </span>
-        </div>
+        {(allowMultiple || files.length === 0) &&
+          <FileSelection
+            openFileDialog={this.openFileDialog}
+            disabled={disabled}
+          />
+        }
         {files.length > 0 &&
           <Files
             files={files}
@@ -384,6 +379,10 @@ class RFDropzone extends Component {
       disabled,
     } = this.props
 
+    const dropzoneClassName = classnames(className, {
+      'dropzone-disabled': disabled
+    })
+
     if (this.state.fetching) {
       return <div>Ladataan...</div>
     }
@@ -392,11 +391,11 @@ class RFDropzone extends Component {
       <div>
         {this.renderLabel()}
         <Dropzone
-          className={className}
+          className={dropzoneClassName}
           accept={acceptedFileFormats}
           disabled={error || warning || disabled}
           disableClick={true}
-          multiple={true || false}
+          multiple={this.props.allowMultiple}
           style={error || warning || disabled ? { opacity: "0.4" } : null}
           onDrop={this.handleDrop}
           ref={this.dropzoneRef}
@@ -414,6 +413,7 @@ class RFDropzone extends Component {
 
 RFDropzone.defaultProps = {
   acceptedFileFormats: 'image/jpeg, image/png, application/pdf',
+  allowMultiple: true,
   className: 'dropzone',
   disabled: false,
   includeCredentials: true,
@@ -428,6 +428,7 @@ RFDropzone.propTypes = {
   meta: object.isRequired,
   uploadUrl: string.isRequired,
   acceptedFileFormats: string,
+  allowMultiple: bool,
   className: string,
   disabled: bool,
   getFilesOnMount: func,

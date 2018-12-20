@@ -1,7 +1,7 @@
 import appendRunningNumberToFilename from './create-running-number'
 
 const createFilename = (file, fileNumber, props) => {
-  let filename
+  let filename = file.name
 
   if (props.filenameOverride) {
     filename = props.filenameOverride

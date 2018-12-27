@@ -7,10 +7,12 @@ class QueuedFiles extends PureComponent {
     return (
       <div>
         <ul className="dropzone-files">
-          <File
-            file={this.props.activeFile}
-            showPreview={this.props.showPreview}
-          />
+          {this.props.activeFile &&
+            <File
+              file={this.props.activeFile}
+              showPreview={this.props.showPreview}
+            />
+          }
           {this.props.pendingFiles.map(file => (
             <File
               key={file.name}

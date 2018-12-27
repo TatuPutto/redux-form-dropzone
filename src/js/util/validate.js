@@ -30,7 +30,7 @@ const validate = (files, props) => {
         name: file.name,
         status: 'DECLINED',
         action: 'UPLOAD',
-        error: l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.')
+        error: l10n('error.fileIsTooLarge', 'Tiedosto on liian suuri.', [maxFileSize / 1024 / 1024])
       })
       return false
     }

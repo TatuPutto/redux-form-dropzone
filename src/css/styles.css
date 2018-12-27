@@ -31,7 +31,17 @@
 }
 
 .dropzone-open-file-dialog-btn {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #cac7c7;
+  color: #333;
+  margin-right: 0.2rem;
   padding: 4px 10px 6px 12px;
+}
+
+.dropzone-open-file-dialog-btn:hover {
+  background: #eaeaea;
+  cursor: pointer;
 }
 
 .dropzone-open-file-dialog-btn:disabled:hover {
@@ -55,15 +65,15 @@
 
 .dropzone-file-content {
   flex-grow: 1;
-  margin-right: 1rem;
+  /* margin-right: 1rem; */
 }
 
 .dropzone-file-preview-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 2.5rem;
-  width: 2.5rem;
+  height: 2rem;
+  width: 2rem;
   margin-right: 0.5rem;
 }
 
@@ -73,7 +83,7 @@
 }
 
 .dropzone-file-preview-placeholder {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
 }
 
 .dropzone-file-upload-progress-container {

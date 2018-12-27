@@ -13,8 +13,8 @@ export const resetActiveFile = () => ({
   activeFile: null
 })
 
-export const resetFailedUploads = () => ({
-  failedUploads: []
+export const resetErroredFiles = () => ({
+  erroredFiles: []
 })
 
 export const setFirstQueuedFileAsActive = (state) => ({

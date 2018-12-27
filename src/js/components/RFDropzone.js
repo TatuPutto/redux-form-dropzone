@@ -14,7 +14,7 @@ import {
   addErrors,
   addFilesToQueue,
   resetActiveFile,
-  resetFailedUploads,
+  resetErroredFiles,
   setFirstQueuedFileAsActive,
   toggleFetchingStatus,
   toggleUploadingStatus,
@@ -26,6 +26,7 @@ class RFDropzone extends Component {
     super(props)
     this.state = {
       fetching: props.getFilesOnMount ? true : false,
+      fetchedSuccessfully: false,
       uploading: false,
       queue: [],
       erroredFiles: [],
@@ -41,12 +42,25 @@ class RFDropzone extends Component {
   }
 
   getFiles = () => {
-    this.props.getFilesOnMount().then(files => {
-      this.setState(toggleFetchingStatus)
-      if (files.length) {
-        this.addFilesToFormValues(files)
-      }
-    })
+    this.props.getFilesOnMount()
+      .then(files => {
+        this.addFilesToFormValues(files, true)
+        this.setState({ fetchedSuccessfully: true })
+      })
+      .catch(() => {
+        this.setState({ fetchedSuccessfully: false })
+      })
+      .finally(() => {
+        this.setState(toggleFetchingStatus)
+      })
+  }
+
+  getCurrentFiles = () => {
+    if (this.props.targetProp) {
+      return this.props.input.value[this.props.targetProp] || []
+    } else {
+      return this.props.input.value || []
+    }
   }
 
   openFileDialog = () => {
@@ -54,6 +68,13 @@ class RFDropzone extends Component {
   }
 
   handleDrop = (acceptedFiles, rejectedFiles) => {
+    if (!acceptedFiles.length && !rejectedFiles.length) return
+
+    this.confirmUpload()
+      .then(() => this.startUploadProcess(acceptedFiles, rejectedFiles))
+  }
+
+  startUploadProcess = (acceptedFiles, rejectedFiles) => {
     const files = [].concat(acceptedFiles, rejectedFiles)
     const validFiles = this.validateFiles(files, this.props)
 
@@ -65,10 +86,26 @@ class RFDropzone extends Component {
     }
   }
 
+  confirmUpload = () => {
+    return new Promise((resolve, reject) => {
+      if (!this.props.allowMultiple && this.getCurrentFiles().length) {
+        if (window.confirm(l10n('onlyOneFileAllowed'))) {
+          return this.removeFile(this.getCurrentFiles()[0])
+            .then(() => resolve())
+            .catch(() => reject())
+        } else {
+          reject()
+        }
+      } else {
+        resolve()
+      }
+    })
+  }
+
   validateFiles = (files) => {
     const { validFiles, invalidFiles } = validate(files, this.props)
 
-    this.setState(resetFailedUploads)
+    this.setState(resetErroredFiles)
     this.setState(addErrors(invalidFiles))
 
     return validFiles
@@ -142,6 +179,7 @@ class RFDropzone extends Component {
       }))
 
       function handleUploadProgress(e) {
+        console.log('handleUploadProgress', e);
         if (progressEventsFired === 0 && e.loaded === e.total) {
           completedBeforeFirstProgressEvent = true
         } else {
@@ -155,21 +193,38 @@ class RFDropzone extends Component {
       }
 
       function handleUploadCompletion() {
+        console.log('@handleUploadCompletion - completedBeforeFirstProgressEvent: ', completedBeforeFirstProgressEvent);
         if (completedBeforeFirstProgressEvent) {
           _this.autocompleteClientSidePartOfRequestProgressBar()
         }
       }
 
       function handleRequestCompletion(e) {
-        const responseStatus = e.currentTarget.status
+        setTimeout(() => {
+
+
+
+        const responseStatus = e.target.status
         if (responseStatus >= 200 && responseStatus < 300) {
-          _this.autocompleteServerSidePartOfRequestProgressBar()
-            .then(() => _this.props.onSuccess(file) || Promise.resolve())
-            .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+          // _this.autocompleteServerSidePartOfRequestProgressBar()
+          //   .then(() => {
+              if (_this.props.onSuccess) {
+                return _this.props.onSuccess(file)
+                  .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+              } else {
+                return Promise.resolve(`${_this.props.uploadUrl}/${file.name}`)
+                  .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+              }
+
+
         } else {
           clearInterval(_this.progressBarAutocompleteInterval)
           reject({ ...file, status: 'DECLINED' })
         }
+
+        }, 10000);
+
+
       }
     })
   }
@@ -183,9 +238,9 @@ class RFDropzone extends Component {
     let progressPercentage = 0
     return new Promise(resolve => {
       this.progressBarAutocompleteInterval = setInterval(() => {
-        if (progressPercentage <= 80) {
+        if (progressPercentage < 99) {
           this.setState(updateActiveFile('progress', progressPercentage))
-          progressPercentage++
+          progressPercentage = progressPercentage + 3
         } else {
           clearInterval(this.progressBarAutocompleteInterval)
           resolve()
@@ -216,20 +271,35 @@ class RFDropzone extends Component {
     })
   }
 
-  addFilesToFormValues = (files) => {
+  addFilesToFormValues = (files, replaceExisting = false) => {
     files = Array.isArray(files) ? files : [files]
     const field = this.props.input
-    const target = field.value
-    const targetCopy = JSON.parse(JSON.stringify(target))
+    const target = field.value || []
     const targetProp = this.props.targetProp
+    // const attachedStatusProp = this.props.attachedStatusProp
+    let targetCopy = JSON.parse(JSON.stringify(target))
 
-    if (targetProp && targetCopy.hasOwnProperty(targetProp)) {
-      targetCopy[targetProp] = targetCopy[targetProp].concat(files)
-    } else if (targetProp) {
-      targetCopy[targetProp] = files
+    if (replaceExisting) {
+      if (targetProp) {
+        targetCopy[targetProp] = files
+      } else {
+        targetCopy = files
+      }
     } else {
-      targetCopy.concat(files)
+      if (targetProp && targetCopy.hasOwnProperty(targetProp)) {
+        targetCopy[targetProp] = targetCopy[targetProp].concat(files)
+      } else if (targetProp) {
+        targetCopy[targetProp] = files
+      } else {
+        targetCopy = targetCopy.concat(files)
+      }
     }
+
+
+
+    // if (attachedStatusProp) {
+    //   targetCopy[attachedStatusProp] = true
+    // }
 
     return field.onChange(targetCopy)
   }
@@ -240,40 +310,48 @@ class RFDropzone extends Component {
 
     this.updateFileInFormValues(fileToRemove, 'status', 'REMOVING')
 
-    request.addEventListener('load', handleRequestCompletion)
-    request.addEventListener('error', handleRequestFailure)
-    request.open('DELETE', `${this.props.uploadUrl}/${fileToRemove.name}`, true)
-    request.withCredentials = this.props.includeCredentials
-    request.send()
+    return new Promise((resolve, reject) => {
+      request.addEventListener('load', handleRequestCompletion)
+      request.addEventListener('error', handleRequestFailure)
+      request.open('DELETE', `${this.props.uploadUrl}/${fileToRemove.name}`, true)
+      request.withCredentials = this.props.includeCredentials
+      request.send()
 
-    function handleRequestCompletion(e) {
-      const responseStatus = e.currentTarget.status
-      if (responseStatus >= 200 && responseStatus < 300) {
-        _this.removeFileFromFormValues(fileToRemove)
-      } else {
-        handleRequestFailure()
+      function handleRequestCompletion(e) {
+        const responseStatus = e.target.status
+        if (responseStatus >= 200 && responseStatus < 300) {
+          _this.removeFileFromFormValues(fileToRemove)
+          resolve()
+        } else {
+          handleRequestFailure(e)
+        }
       }
-    }
 
-    function handleRequestFailure() {
-      _this.updateFileInFormValues(fileToRemove, 'status', 'UPLOADED')
-      _this.setState(addErrors({ ...fileToRemove, action: 'REMOVE' }))
-    }
+      function handleRequestFailure() {
+        _this.updateFileInFormValues(fileToRemove, 'status', 'UPLOADED')
+        _this.setState(addErrors({ ...fileToRemove, action: 'REMOVE' }))
+        reject()
+      }
+    })
   }
 
   removeFileFromFormValues = (fileToRemove) => {
     const field = this.props.input
-    const target = field.value
     const targetProp = this.props.targetProp
+    const attachedStatusProp = this.props.attachedStatusProp
+    let targetCopy = JSON.parse(JSON.stringify(field.value))
 
     if (targetProp) {
-      field.onChange({
-        ...target,
-        [targetProp]: target[targetProp].filter(file => file.name !== fileToRemove.name)
-      })
+      targetCopy[targetProp] = targetCopy[targetProp].filter(file => file.name !== fileToRemove.name)
     } else {
-      field.onChange(target.filter(file => file.name !== fileToRemove.name))
+      targetCopy = targetCopy.filter(file => file.name !== fileToRemove.name)
     }
+
+    if (attachedStatusProp) {
+      targetCopy[attachedStatusProp] = false
+    }
+
+    return field.onChange(targetCopy)
   }
 
   updateFileInFormValues = (fileToUpdate, key, value) => {
@@ -323,22 +401,27 @@ class RFDropzone extends Component {
   }
 
   renderDropzoneContent = () => {
-    const { input, targetProp, allowMultiple, disabled, showPreview } = this.props
+    const {
+      input,
+      targetProp,
+      disabled,
+      includeFileTypeIcon,
+      showPreview
+    } = this.props
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (
       <Fragment>
-        {(allowMultiple || files.length === 0) &&
-          <FileSelection
-            openFileDialog={this.openFileDialog}
-            disabled={disabled}
-          />
-        }
+        <FileSelection
+          openFileDialog={this.openFileDialog}
+          disabled={disabled}
+        />
         {files.length > 0 &&
           <Files
             files={files}
             disabled={disabled}
             showPreview={showPreview}
+            includeFileTypeIcon={includeFileTypeIcon}
             removeFile={this.removeFile}
           />
         }
@@ -376,15 +459,17 @@ class RFDropzone extends Component {
       meta: { error, warning },
       acceptedFileFormats,
       className,
-      disabled,
+      alwaysEnabled,
+      disabled
     } = this.props
 
+    const shouldDisable = !alwaysEnabled && (disabled || !!error || !!warning)
     const dropzoneClassName = classnames(className, {
-      'dropzone-disabled': disabled
+      'dropzone-disabled': shouldDisable
     })
 
     if (this.state.fetching) {
-      return <div>Ladataan...</div>
+      return <div>{l10n('loading', 'Ladataan...')}</div>
     }
 
     return (
@@ -393,11 +478,11 @@ class RFDropzone extends Component {
         <Dropzone
           className={dropzoneClassName}
           accept={acceptedFileFormats}
-          disabled={error || warning || disabled}
+          disabled={shouldDisable}
           disableClick={true}
           multiple={this.props.allowMultiple}
-          style={error || warning || disabled ? { opacity: "0.4" } : null}
           onDrop={this.handleDrop}
+          style={{ opacity: shouldDisable ? '0.4' : '1' }}
           ref={this.dropzoneRef}
         >
           {this.renderDropzoneContent()}
@@ -413,11 +498,13 @@ class RFDropzone extends Component {
 
 RFDropzone.defaultProps = {
   acceptedFileFormats: 'image/jpeg, image/png, application/pdf',
+  alwaysEnabled: false,
   allowMultiple: true,
   className: 'dropzone',
   disabled: false,
   includeCredentials: true,
   includeErrorIcon: false,
+  includeFileTypeIcon: false,
   includeFileRestrictionsLegend: false,
   maxFileSize: undefined,
   showPreview: true,
@@ -428,21 +515,23 @@ RFDropzone.propTypes = {
   meta: object.isRequired,
   uploadUrl: string.isRequired,
   acceptedFileFormats: string,
+  alwaysEnabled: bool,
   allowMultiple: bool,
+  attachedStatusProp: string,
   className: string,
   disabled: bool,
   getFilesOnMount: func,
   includeCredentials: bool,
   includeErrorIcon: bool,
   includeFileRestrictionsLegend: bool,
+  includeFileTypeIcon: bool,
   label: oneOfType([func, string]),
   maxFileSize: number,
   onFileReadSuccess: func,
   serverSideThreshold: number,
   showPreview: bool,
   targetProp: string,
-  // style: PropTypes.object,
-  // uploadFn: PropTypes.func.isRequired
+  // style: object,
 }
 
 export default RFDropzone

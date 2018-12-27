@@ -1,5 +1,6 @@
 import React, { PureComponent, Fragment } from 'react'
 import { array, func } from 'prop-types'
+import Alert from './Alert'
 import l10n from '../util/l10n'
 
 class Errors extends PureComponent {
@@ -7,7 +8,7 @@ class Errors extends PureComponent {
     const { /* dismiss, */ erroredFiles } = this.props
 
     return (
-      <Fragment>
+      <Alert color="danger">
         {l10n('error.failedToUploadMultipleFiles', 'Seuraavien tiedostojen lähettäminen ei onnistunut')}:
         <ul className="mt-2 mb-1">
           {erroredFiles.map(erroredFile => (
@@ -20,7 +21,7 @@ class Errors extends PureComponent {
             </li>
           ))}
           </ul>
-      </Fragment>
+      </Alert>
     )
   }
 
@@ -28,7 +29,7 @@ class Errors extends PureComponent {
     const { /* dismiss, */ erroredFiles } = this.props
 
     return (
-      <Fragment>
+      <Alert color="danger">
         <div className="font-weight-bold">
           {erroredFiles[0].action === 'REMOVE' ?
             <Fragment>
@@ -49,7 +50,7 @@ class Errors extends PureComponent {
           }
         </div>
         {erroredFiles[0].error}
-      </Fragment>
+      </Alert>
     )
   }
 

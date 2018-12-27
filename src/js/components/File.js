@@ -10,7 +10,7 @@ class File extends PureComponent {
       return preview
     }
 
-    if (file.type.includes('png') || file.type.includes('jpeg')) {
+    if (file.type.includes('png') || file.type.includes('jpg') || file.type.includes('jpeg')) {
       preview = <img className="dropzone-file-preview" src={file.preview} />
     } else if (file.type.includes('pdf')) {
       preview = <span className="far fa-file-pdf dropzone-file-preview-placeholder" />
@@ -23,6 +23,34 @@ class File extends PureComponent {
     return (
       <div className="dropzone-file-preview-container">
         {preview}
+      </div>
+    )
+  }
+
+  renderFileTypeIcon = () => {
+    if (!this.props.includeFileTypeIcons) {
+      return null
+    }
+
+    const { file } = this.props
+    const fileType = file.type || file.contentType || file.name.split('.').pop()
+    let icon
+
+    if ((fileType.includes('png') || fileType.includes('jpg') || fileType.includes('jpeg')) && file.preview) {
+      icon = <img className="dropzone-file-preview" src={file.preview} />
+    } else if (fileType.includes('png') || fileType.includes('jpg') || fileType.includes('jpeg')) {
+      icon = <span className="far fa-file-image dropzone-file-preview-placeholder" />
+    } else if (fileType.includes('pdf')) {
+      icon = <span className="far fa-file-pdf dropzone-file-preview-placeholder" />
+    } else if (fileType.includes('msword')) {
+      icon = <span className="far fa-file-word dropzone-file-preview-placeholder" />
+    } else {
+      icon = <span className="far fa-file-alt dropzone-file-preview-placeholder" />
+    }
+
+    return (
+      <div className="dropzone-file-preview-container">
+        {icon}
       </div>
     )
   }
@@ -61,6 +89,15 @@ class File extends PureComponent {
       )
     } else if (file.status === 'UPLOADING') {
       return (
+        <div className="text-muted">
+          <small>
+            <span className="fas fa-spinner fa-spin fa-pulse" />
+            {" "} Lähetetään...
+          </small>
+        </div>
+      )
+
+      return (
         <div className="dropzone-file-upload-progress-container">
           <div
             className="dropzone-file-upload-progress text-primary"
@@ -85,14 +122,16 @@ class File extends PureComponent {
 
     if (!file.status || file.status === 'UPLOADED') {
       return (
-        <button
-          type="button"
-          className="dropzone-file-action-btn dropzone-remove-file-btn"
-          disabled={disabled}
-          onClick={() => this.props.removeFile(file)}
-        >
-          <span className="far fa-trash-alt" />
-        </button>
+        <div style={{marginLeft: "0.5rem"}}>
+          <button
+            type="button"
+            className="dropzone-file-action-btn dropzone-remove-file-btn"
+            disabled={disabled}
+            onClick={() => this.props.removeFile(file)}
+          >
+            <span className="far fa-trash-alt" />
+          </button>
+        </div>
       )
     } else if (file.status && file.status === 'UPLOADING') {
       /*return (
@@ -107,14 +146,16 @@ class File extends PureComponent {
       return null
     } else if (file.status && file.status === 'REMOVING') {
       return (
-        <button
-          type="button"
-          className="dropzone-file-action-btn dropzone-remove-file-btn"
-          disabled={disabled}
-          style={{cursor: 'not-allowed'}}
-        >
-          <span className="fas fa-spinner fa-pulse fa-spin" />
-        </button>
+        <div style={{marginLeft: "0.5rem"}}>
+          <button
+            type="button"
+            className="dropzone-file-action-btn dropzone-remove-file-btn"
+            disabled={disabled}
+            style={{cursor: 'not-allowed'}}
+          >
+            <span className="fas fa-spinner fa-pulse fa-spin" />
+          </button>
+        </div>
       )
     } else {
       return null
@@ -126,7 +167,7 @@ class File extends PureComponent {
 
     return (
       <li key={file.name} className="dropzone-file">
-        {this.renderPreview()}
+        {this.renderFileTypeIcon()}
         {this.renderFileContent()}
         {this.renderActionButton()}
       </li>
@@ -136,6 +177,7 @@ class File extends PureComponent {
 
 File.propTypes = {
   file: object.isRequired,
+  includeFileTypeIcons: bool.isRequired,
   showPreview: bool.isRequired,
   disabled: bool,
   removeFile: func,

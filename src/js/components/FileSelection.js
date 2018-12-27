@@ -7,7 +7,7 @@ class FileSelection extends PureComponent {
     return (
       <div className="dropzone-file-select truncate-text">
         <button
-          className="dropzone-open-file-dialog-btn btn btn-outline-primary"
+          className="dropzone-open-file-dialog-btn btn"
           type="button"
           disabled={this.props.disabled}
           onClick={() => this.props.openFileDialog()}

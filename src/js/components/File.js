@@ -1,6 +1,7 @@
 import React, { PureComponent } from 'react'
 import { bool, func, object } from 'prop-types'
-
+// import ReactCSSTransitionGroup from 'react-addons-css-transition-group'
+// console.log(ReactCSSTransitionGroup);
 class File extends PureComponent {
   renderPreview = () => {
     const { file, showPreview } = this.props
@@ -166,7 +167,7 @@ class File extends PureComponent {
     const file = this.props.file
 
     return (
-      <li key={file.name} className="dropzone-file">
+      <li key={file.name} className={this.props.className || 'dropzone-file'}>
         {this.renderFileTypeIcon()}
         {this.renderFileContent()}
         {this.renderActionButton()}

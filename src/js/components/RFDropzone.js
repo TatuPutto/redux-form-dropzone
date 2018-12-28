@@ -10,6 +10,8 @@ import createFilename from '../util/create-filename'
 import l10n from '../util/l10n'
 import validate from '../util/validate'
 
+// import ReactCSSTransitionGroup from 'react-addons-css-transition-group'
+
 import {
   addErrors,
   addFilesToQueue,
@@ -160,6 +162,14 @@ class RFDropzone extends Component {
 
     this.setState(updateActiveFile('status', 'UPLOADING'))
 
+    return new Promise(function(resolve) {
+      setTimeout(() => {
+
+        resolve({ ...file, status: 'UPLOADED', location: '#' })
+
+      }, 2000)
+    })
+
     return new Promise((resolve, reject) => {
       const _this = this
       const request = new XMLHttpRequest()
@@ -179,7 +189,6 @@ class RFDropzone extends Component {
       }))
 
       function handleUploadProgress(e) {
-        console.log('handleUploadProgress', e);
         if (progressEventsFired === 0 && e.loaded === e.total) {
           completedBeforeFirstProgressEvent = true
         } else {
@@ -193,7 +202,6 @@ class RFDropzone extends Component {
       }
 
       function handleUploadCompletion() {
-        console.log('@handleUploadCompletion - completedBeforeFirstProgressEvent: ', completedBeforeFirstProgressEvent);
         if (completedBeforeFirstProgressEvent) {
           _this.autocompleteClientSidePartOfRequestProgressBar()
         }
@@ -201,8 +209,6 @@ class RFDropzone extends Component {
 
       function handleRequestCompletion(e) {
         setTimeout(() => {
-
-
 
         const responseStatus = e.target.status
         if (responseStatus >= 200 && responseStatus < 300) {
@@ -426,11 +432,13 @@ class RFDropzone extends Component {
           />
         }
         {this.state.uploading && this.state.activeFile &&
-          <QueuedFiles
-            activeFile={this.state.activeFile}
-            showPreview={showPreview}
-            pendingFiles={this.state.queue}
-          />
+
+            <QueuedFiles
+              activeFile={this.state.activeFile}
+              showPreview={showPreview}
+              pendingFiles={this.state.queue}
+            />
+
         }
       </Fragment>
     )

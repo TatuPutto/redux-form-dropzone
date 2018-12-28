@@ -154,3 +154,26 @@
 .alert-danger > span {
   color: #d9534f;
 }*/
+
+
+.dropzone-files-entering {
+  max-height: 0;
+  opacity: 0;
+}
+
+.dropzone-files-entered {
+  max-height: 200px;
+  opacity: 1;
+  transition: max-height 150ms linear, opacity 200ms ease-out 100ms;
+}
+
+.collapse-and-fade-leave {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.collapse-and-fade-leave.collapse-and-fade-leave-active {
+  max-height: 0;
+  opacity: 0;
+  transition: opacity 200ms ease-out, max-height 200ms linear 100ms;
+}

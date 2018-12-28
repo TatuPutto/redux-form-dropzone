@@ -1,5 +1,6 @@
 import React, { PureComponent } from 'react'
 import { bool, func, object } from 'prop-types'
+import l10n from '../util/l10n'
 
 class File extends PureComponent {
   renderPreview = () => {
@@ -92,19 +93,19 @@ class File extends PureComponent {
         <div className="text-muted">
           <small>
             <span className="fas fa-spinner fa-spin fa-pulse" />
-            {" "} Lähetetään...
+            {" " + l10n('uploading', 'Lähetetään...')}
           </small>
         </div>
       )
 
-      return (
-        <div className="dropzone-file-upload-progress-container">
-          <div
-            className="dropzone-file-upload-progress text-primary"
-            style={{ width: `${file.progress}%` }}
-          />
-        </div>
-      )
+      // return (
+      //   <div className="dropzone-file-upload-progress-container">
+      //     <div
+      //       className="dropzone-file-upload-progress text-primary"
+      //       style={{ width: `${file.progress}%` }}
+      //     />
+      //   </div>
+      // )
     } else if (file.status === 'DECLINED' || file.status === 'RESENDABLE') {
       return (
         <div className="text-danger">

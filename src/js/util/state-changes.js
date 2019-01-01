@@ -22,6 +22,16 @@ export const setFirstQueuedFileAsActive = (state) => ({
   queue: state.queue.slice(1)
 })
 
+export const setFetchSuccessStatus = () => ({
+  fetching: false,
+  fetchedSuccessfully: true
+})
+
+export const setFetchFailureStatus = () => ({
+  fetching: false,
+  fetchedSuccessfully: false
+})
+
 export const toggleFetchingStatus = (state) => ({
   fetching: !state.fetching
 })

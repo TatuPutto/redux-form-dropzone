@@ -3,8 +3,10 @@ import { bool, func, number, object, oneOfType, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import classnames from 'classnames'
 import Errors from './Errors'
+import FailedToLoad from './FailedToLoad'
 import Files from './Files'
 import FileSelection from './FileSelection'
+import LoadingFiles from './LoadingFiles'
 import QueuedFiles from './QueuedFiles'
 import createFilename from '../util/create-filename'
 import l10n from '../util/l10n'
@@ -16,6 +18,8 @@ import {
   resetActiveFile,
   resetErroredFiles,
   setFirstQueuedFileAsActive,
+  setFetchSuccessStatus,
+  setFetchFailureStatus,
   toggleFetchingStatus,
   toggleUploadingStatus,
   updateActiveFile
@@ -37,21 +41,19 @@ class RFDropzone extends Component {
 
   componentDidMount() {
     if (this.props.getFilesOnMount) {
-      this.getFiles()
+      return this.getFiles()
     }
   }
 
   getFiles = () => {
-    this.props.getFilesOnMount()
+    return this.props.getFilesOnMount()
       .then(files => {
-        this.addFilesToFormValues(files, true)
-        this.setState({ fetchedSuccessfully: true })
+        // console.log('@getFilesOnMount success', files);
+        // this.addFilesToFormValues(files, true)
+        this.setState(setFetchSuccessStatus)
       })
       .catch(() => {
-        this.setState({ fetchedSuccessfully: false })
-      })
-      .finally(() => {
-        this.setState(toggleFetchingStatus)
+        this.setState(setFetchFailureStatus)
       })
   }
 
@@ -390,21 +392,36 @@ class RFDropzone extends Component {
 
   renderDropzoneContent = () => {
     const {
+      fetchedSuccessfully,
+      fetching,
+      queue,
+      uploading,
+      activeFile
+    } = this.state
+
+    const {
       input,
       targetProp,
       disabled,
+      getFilesOnMount,
       includeFileTypeIcon,
       showPreview
     } = this.props
-    
+
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (
       <Fragment>
-        <FileSelection
-          openFileDialog={this.openFileDialog}
-          disabled={disabled}
-        />
+        {fetching ?
+          <LoadingFiles />
+          : (!fetching && fetchedSuccessfully || !getFilesOnMount) ?
+            <FileSelection
+              openFileDialog={this.openFileDialog}
+              disabled={disabled}
+            />
+            :
+              <FailedToLoad />
+        }
         {files.length > 0 &&
           <Files
             files={files}
@@ -414,11 +431,11 @@ class RFDropzone extends Component {
             removeFile={this.removeFile}
           />
         }
-        {this.state.uploading && this.state.activeFile &&
+        {uploading && activeFile &&
           <QueuedFiles
-            activeFile={this.state.activeFile}
+            activeFile={activeFile}
             showPreview={showPreview}
-            pendingFiles={this.state.queue}
+            pendingFiles={queue}
           />
         }
       </Fragment>
@@ -456,10 +473,6 @@ class RFDropzone extends Component {
     const dropzoneClassName = classnames(className, {
       'dropzone-disabled': shouldDisable
     })
-
-    if (this.state.fetching) {
-      return <div>{l10n('loading', 'Ladataan...')}</div>
-    }
 
     return (
       <div>

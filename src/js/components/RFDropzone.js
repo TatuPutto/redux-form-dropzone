@@ -163,11 +163,11 @@ class RFDropzone extends Component {
     return new Promise((resolve, reject) => {
       const _this = this
       const request = new XMLHttpRequest()
-      let completedBeforeFirstProgressEvent = false
-      let progressEventsFired = 0
+      // let completedBeforeFirstProgressEvent = false
+      // let progressEventsFired = 0
 
-      request.upload.addEventListener('progress', handleUploadProgress)
-      request.upload.addEventListener('load', handleUploadCompletion)
+      // request.upload.addEventListener('progress', handleUploadProgress)
+      // request.upload.addEventListener('load', handleUploadCompletion)
       request.addEventListener('load', handleRequestCompletion)
       request.open('POST', this.props.uploadUrl, true)
       request.withCredentials = this.props.includeCredentials
@@ -178,53 +178,41 @@ class RFDropzone extends Component {
         content: file.content
       }))
 
-      function handleUploadProgress(e) {
-        console.log('handleUploadProgress', e);
-        if (progressEventsFired === 0 && e.loaded === e.total) {
-          completedBeforeFirstProgressEvent = true
-        } else {
-          const progressPercentage = e.progress / e.total * 100
-          const clientSideThreshold = this.props.serverSideThreshold ?
-            (this.props.serverSideThreshold - 100) : 80
-          if (progressPercentage <= clientSideThreshold) {
-            _this.setState(updateActiveFile('progress', progressPercentage))
-          }
-        }
-      }
+      // function handleUploadProgress(e) {
+      //   console.log('handleUploadProgress', e);
+      //   if (progressEventsFired === 0 && e.loaded === e.total) {
+      //     completedBeforeFirstProgressEvent = true
+      //   } else {
+      //     const progressPercentage = e.progress / e.total * 100
+      //     const clientSideThreshold = this.props.serverSideThreshold ?
+      //       (this.props.serverSideThreshold - 100) : 80
+      //     if (progressPercentage <= clientSideThreshold) {
+      //       _this.setState(updateActiveFile('progress', progressPercentage))
+      //     }
+      //   }
+      // }
 
-      function handleUploadCompletion() {
-        console.log('@handleUploadCompletion - completedBeforeFirstProgressEvent: ', completedBeforeFirstProgressEvent);
-        if (completedBeforeFirstProgressEvent) {
-          _this.autocompleteClientSidePartOfRequestProgressBar()
-        }
-      }
+      // function handleUploadCompletion() {
+      //   console.log('@handleUploadCompletion - completedBeforeFirstProgressEvent: ', completedBeforeFirstProgressEvent);
+      //   if (completedBeforeFirstProgressEvent) {
+      //     _this.autocompleteClientSidePartOfRequestProgressBar()
+      //   }
+      // }
 
       function handleRequestCompletion(e) {
-        setTimeout(() => {
-
-
-
         const responseStatus = e.target.status
         if (responseStatus >= 200 && responseStatus < 300) {
-          // _this.autocompleteServerSidePartOfRequestProgressBar()
-          //   .then(() => {
-              if (_this.props.onSuccess) {
-                return _this.props.onSuccess(file)
-                  .then(location => resolve({ ...file, status: 'UPLOADED', location }))
-              } else {
-                return Promise.resolve(`${_this.props.uploadUrl}/${file.name}`)
-                  .then(location => resolve({ ...file, status: 'UPLOADED', location }))
-              }
-
-
+          if (_this.props.onSuccess) {
+            return _this.props.onSuccess(file)
+              .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+          } else {
+            return Promise.resolve(`${_this.props.uploadUrl}/${file.name}`)
+              .then(location => resolve({ ...file, status: 'UPLOADED', location }))
+          }
         } else {
           clearInterval(_this.progressBarAutocompleteInterval)
           reject({ ...file, status: 'DECLINED' })
         }
-
-        }, 10000);
-
-
       }
     })
   }
@@ -408,6 +396,7 @@ class RFDropzone extends Component {
       includeFileTypeIcon,
       showPreview
     } = this.props
+    
     const files = targetProp ? input.value[targetProp] || [] : input.value
 
     return (

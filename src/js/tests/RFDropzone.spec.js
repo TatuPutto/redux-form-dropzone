@@ -9,25 +9,6 @@ import QueuedFiles from '../components/QueuedFiles'
 
 describe('RFDropzone', () => {
   let props
-  let state
-  // let shallowDropzone
-  // let mountedDropzone
-
-  const shallowDropzone = () => {
-    return shallow(<RFDropzone {...props} />)
-    if (!shallowDropzone) {
-      // shallowDropzone = shallow(<RFDropzone {...props} />)
-    }
-    return shallowDropzone
-  }
-
-  const mountDropzone = () => {
-    return mount(<RFDropzone {...props} />)
-    // if (!mountedDropzone) {
-    //   mountedDropzone = mount(<RFDropzone {...props} />)
-    // }
-    // return mountedDropzone
-  }
 
   beforeEach(() => {
     props = {
@@ -40,14 +21,15 @@ describe('RFDropzone', () => {
 
   describe('get files on mount cycle', () => {
 
-    it('should set `state.fetching` initially to true if `props.getFilesOnMount` has been provided', () => {
-      props = { ...props, getFilesOnMount: () => Promise.resolve() }
-      const dropzone = shallowDropzone()
-      expect(dropzone.state().fetching).toBe(true)
+    it('should call `props.getFilesOnMount` on mount if it has been provided', () => {
+      const getFilesOnMount = jest.fn(() => Promise.resolve())
+      props = { ...props, getFilesOnMount: getFilesOnMount }
+      shallowDropzone()
+      expect(getFilesOnMount.mock.calls.length).toBe(1)
     })
 
     it('should render only `LoadingFiles` when loading files', () => {
-      props = { ...props, getFilesOnMount: () => Promise.resolve() }
+      props = { ...props, getFilesOnMount: getFilesOnMountResolve }
       const dropzone = shallowDropzone()
       expect(dropzone.find(LoadingFiles).length).toBe(1)
       expect(dropzone.find(FailedToLoad).length).toBe(0)
@@ -57,7 +39,7 @@ describe('RFDropzone', () => {
     })
 
     it('should render only `FailedToLoad` when load fails', async () => {
-      props = { ...props, getFilesOnMount: () => Promise.reject() }
+      props = { ...props, getFilesOnMount: getFilesOnMountReject }
       const dropzone = shallowDropzone()
       await dropzone.instance().componentDidMount()
       dropzone.update()
@@ -68,10 +50,49 @@ describe('RFDropzone', () => {
       expect(dropzone.find(QueuedFiles).length).toBe(0)
     })
 
+    it('should try to periodically load files (if `props.retryTimeout` has been provided) until satisfactory response has been received', async () => {
+      let calls = 0
+      const resolveOnFourthCall = jest.fn(() => {
+        if (calls < 3) {
+          calls++
+          return Promise.reject()
+        }
+        return Promise.resolve()
+      })
+      props = { ...props, retryTimeout: 1, getFilesOnMount: resolveOnFourthCall }
+      shallowDropzone()
+      await sleep(100)
+      expect(resolveOnFourthCall.mock.calls.length).toBe(4)
+    })
+
   })
 
   it('should render `FileSelection` when not loading files', () => {
     const dropzone = shallowDropzone()
     expect(dropzone.find(FileSelection).length).toBe(1)
   })
+
+
+
+  ////
+
+  const sleep = (timeout) => {
+    return new Promise(resolve => setTimeout(() => resolve(), timeout))
+  }
+
+  const shallowDropzone = () => {
+    return shallow(<RFDropzone {...props} />)
+  }
+
+  const mountDropzone = () => {
+    return mount(<RFDropzone {...props} />)
+  }
+
+  const getFilesOnMountResolve = () => {
+    return Promise.resolve()
+  }
+
+  const getFilesOnMountReject = () => {
+    return Promise.reject()
+  }
 })

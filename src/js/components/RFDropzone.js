@@ -29,14 +29,14 @@ class RFDropzone extends Component {
   constructor(props) {
     super(props)
     this.state = {
-      fetching: props.getFilesOnMount ? true : false,
+      fetching: false,
       fetchedSuccessfully: false,
       uploading: false,
       queue: [],
       erroredFiles: [],
     }
     this.dropzoneRef = React.createRef()
-    this.progressBarAutocompleteInterval
+    // this.progressBarAutocompleteInterval
   }
 
   componentDidMount() {
@@ -46,14 +46,21 @@ class RFDropzone extends Component {
   }
 
   getFiles = () => {
-    return this.props.getFilesOnMount()
+    const { getFilesOnMount, retryTimeout } = this.props
+
+    this.setState(toggleFetchingStatus)
+
+    return getFilesOnMount()
       .then(files => {
-        // console.log('@getFilesOnMount success', files);
-        // this.addFilesToFormValues(files, true)
+        this.addFilesToFormValues(files, true)
         this.setState(setFetchSuccessStatus)
       })
-      .catch(() => {
+      .catch((e) => {
+        // console.log('failed', e);
         this.setState(setFetchFailureStatus)
+        if (retryTimeout) {
+          setTimeout(() => this.getFiles(), retryTimeout)
+        }
       })
   }
 
@@ -530,6 +537,7 @@ RFDropzone.propTypes = {
   label: oneOfType([func, string]),
   maxFileSize: number,
   onFileReadSuccess: func,
+  retryTimeout: number,
   serverSideThreshold: number,
   showPreview: bool,
   targetProp: string,

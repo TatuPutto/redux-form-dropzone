@@ -60,7 +60,7 @@ class File extends PureComponent {
     const { file, disabled } = this.props
 
     return (
-      <span className="dropzone-file-content truncate-text">
+      <span className="dropzone-file-content truncated">
         <a href={!disabled && file.location} target="_blank">
           {file.name}
           {file.location && !disabled &&

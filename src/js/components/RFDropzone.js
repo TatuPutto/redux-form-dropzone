@@ -20,6 +20,7 @@ import {
   setFirstQueuedFileAsActive,
   setFetchSuccessStatus,
   setFetchFailureStatus,
+  toggleDisabledStatus,
   toggleFetchingStatus,
   toggleUploadingStatus,
   updateActiveFile
@@ -31,18 +32,31 @@ class RFDropzone extends Component {
     this.state = {
       fetching: false,
       fetchedSuccessfully: false,
+      disabled: false,
       uploading: false,
       queue: [],
-      erroredFiles: [],
+      erroredFiles: []
     }
     this.dropzoneRef = React.createRef()
     // this.progressBarAutocompleteInterval
   }
 
   componentDidMount() {
-    if (this.props.getFilesOnMount) {
+    const { getFilesOnMount, delayInitialLoad } = this.props
+
+    if (getFilesOnMount && !delayInitialLoad) {
       return this.getFiles()
+    } else if (getFilesOnMount && delayInitialLoad) {
+      this.toggleDisabledStatus()
+      setTimeout(() => {
+        this.toggleDisabledStatus()
+        this.getFiles()
+      }, delayInitialLoad)
     }
+  }
+
+  toggleDisabledStatus = () => {
+    this.setState(toggleDisabledStatus)
   }
 
   getFiles = () => {
@@ -55,8 +69,7 @@ class RFDropzone extends Component {
         this.addFilesToFormValues(files, true)
         this.setState(setFetchSuccessStatus)
       })
-      .catch((e) => {
-        // console.log('failed', e);
+      .catch(() => {
         this.setState(setFetchFailureStatus)
         if (retryTimeout) {
           setTimeout(() => this.getFiles(), retryTimeout)
@@ -411,17 +424,21 @@ class RFDropzone extends Component {
       targetProp,
       disabled,
       getFilesOnMount,
+      delayInitialLoad,
       includeFileTypeIcon,
       showPreview
     } = this.props
 
     const files = targetProp ? input.value[targetProp] || [] : input.value
+    const showLoadingIndicator = !fetching && fetchedSuccessfully ||
+                                 !fetching && getFilesOnMount && delayInitialLoad ||
+                                 !getFilesOnMount
 
     return (
       <Fragment>
         {fetching ?
           <LoadingFiles />
-          : (!fetching && fetchedSuccessfully || !getFilesOnMount) ?
+          : showLoadingIndicator ?
             <FileSelection
               openFileDialog={this.openFileDialog}
               disabled={disabled}
@@ -473,10 +490,12 @@ class RFDropzone extends Component {
       acceptedFileFormats,
       className,
       alwaysEnabled,
-      disabled
+      disabled: disabledViaProp
     } = this.props
 
-    const shouldDisable = !alwaysEnabled && (disabled || !!error || !!warning)
+    const { disabled: disabledViaState } = this.state
+
+    const shouldDisable = disabledViaState || !alwaysEnabled && (disabledViaProp || !!error || !!warning)
     const dropzoneClassName = classnames(className, {
       'dropzone-disabled': shouldDisable
     })
@@ -510,6 +529,7 @@ RFDropzone.defaultProps = {
   alwaysEnabled: false,
   allowMultiple: true,
   className: 'dropzone',
+  delayInitialLoad: undefined,
   disabled: false,
   includeCredentials: true,
   includeErrorIcon: false,
@@ -528,6 +548,7 @@ RFDropzone.propTypes = {
   allowMultiple: bool,
   attachedStatusProp: string,
   className: string,
+  delayInitialLoad: number,
   disabled: bool,
   getFilesOnMount: func,
   includeCredentials: bool,

@@ -9,6 +9,10 @@ export const addFilesToQueue = (files) => (state) => ({
   queue: state.queue.concat(files)
 })
 
+export const toggleDisabledStatus = (state) => ({
+  disabled: !state.disabled
+})
+
 export const resetActiveFile = () => ({
   activeFile: null
 })

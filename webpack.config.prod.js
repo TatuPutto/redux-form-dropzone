@@ -20,6 +20,7 @@ module.exports = {
     ]
   },
   externals: {
-    'react': 'commonjs react'
+    'react': 'react',
+    'react-dropzone': 'react-dropzone'
   }
 }

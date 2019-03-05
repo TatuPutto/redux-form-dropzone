@@ -12,11 +12,11 @@ class FileSelection extends PureComponent {
           disabled={this.props.disabled}
           onClick={() => this.props.openFileDialog()}
         >
-          {l10n('label.select', 'Valitse')}
+          {l10n('select', 'Valitse')}
         </button>
         <span style={!this.props.disabled ? { cursor: 'default' } : null}>
           {' '}
-          {l10n('label.orDropFileHere', 'tai pudota tiedosto tähän')}
+          {l10n('orDropFileHere', 'tai pudota tiedosto tähän')}
         </span>
       </div>
     )

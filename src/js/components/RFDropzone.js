@@ -1,7 +1,6 @@
 import React, { Component, Fragment, isValidElement } from 'react'
 import { bool, func, number, object, oneOfType, string } from 'prop-types'
 import Dropzone from 'react-dropzone'
-import classnames from 'classnames'
 import Errors from './Errors'
 import FailedToLoad from './FailedToLoad'
 import Files from './Files'
@@ -38,6 +37,7 @@ class RFDropzone extends Component {
       erroredFiles: []
     }
     this.dropzoneRef = React.createRef()
+    this.failedFetchAttempts = 0
     // this.progressBarAutocompleteInterval
   }
 
@@ -60,7 +60,7 @@ class RFDropzone extends Component {
   }
 
   getFiles = () => {
-    const { getFilesOnMount, retryTimeout } = this.props
+    const { getFilesOnMount, retryTimeout, retryTimes } = this.props
 
     this.setState(toggleFetchingStatus)
 
@@ -70,8 +70,9 @@ class RFDropzone extends Component {
         this.setState(setFetchSuccessStatus)
       })
       .catch(() => {
+        this.failedFetchAttempts++
         this.setState(setFetchFailureStatus)
-        if (retryTimeout) {
+        if (retryTimeout && this.failedFetchAttempts < retryTimes) {
           setTimeout(() => this.getFiles(), retryTimeout)
         }
       })
@@ -430,15 +431,15 @@ class RFDropzone extends Component {
     } = this.props
 
     const files = targetProp ? input.value[targetProp] || [] : input.value
-    const showLoadingIndicator = !fetching && fetchedSuccessfully ||
-                                 !fetching && getFilesOnMount && delayInitialLoad ||
-                                 !getFilesOnMount
+    const showFileSelection = !fetching && fetchedSuccessfully ||
+                              !fetching && getFilesOnMount && delayInitialLoad &&
+                              this.failedFetchAttempts === 0 || !getFilesOnMount
 
     return (
       <Fragment>
         {fetching ?
           <LoadingFiles />
-          : showLoadingIndicator ?
+          : showFileSelection ?
             <FileSelection
               openFileDialog={this.openFileDialog}
               disabled={disabled}
@@ -472,7 +473,7 @@ class RFDropzone extends Component {
       return (
         <small className="text-muted text-nowrap">
           {l10n(
-            'label.attachmentRestrictions',
+            'attachmentRestrictions',
             `Sallitut muodot: PDF, JPG, PNG. Koko enintään ${maxFileSize / 1024 / 1024}MB.`,
             [maxFileSize / 1024 / 1024]
           )}
@@ -496,9 +497,7 @@ class RFDropzone extends Component {
     const { disabled: disabledViaState } = this.state
 
     const shouldDisable = disabledViaState || !alwaysEnabled && (disabledViaProp || !!error || !!warning)
-    const dropzoneClassName = classnames(className, {
-      'dropzone-disabled': shouldDisable
-    })
+    const dropzoneClassName = className + (shouldDisable ? ' dropzone-disabled' : '')
 
     return (
       <div>
@@ -536,6 +535,7 @@ RFDropzone.defaultProps = {
   includeFileTypeIcon: false,
   includeFileRestrictionsLegend: false,
   maxFileSize: undefined,
+  retryTimes: 10,
   showPreview: true,
 }
 
@@ -559,6 +559,7 @@ RFDropzone.propTypes = {
   maxFileSize: number,
   onFileReadSuccess: func,
   retryTimeout: number,
+  retryTimes: number,
   serverSideThreshold: number,
   showPreview: bool,
   targetProp: string,

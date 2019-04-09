@@ -57,11 +57,18 @@ class File extends PureComponent {
   }
 
   renderFileContent = () => {
-    const { file, disabled } = this.props
+    const { file, disabled, uploadOnDrop } = this.props
+    let href = null
+
+    if (!disabled && uploadOnDrop) {
+      href = file.location
+    } else if (!disabled && !uploadOnDrop) {
+      href = file.preview
+    }
 
     return (
       <span className="dropzone-file-content truncated">
-        <a href={!disabled && file.location} target="_blank">
+        <a href={href} target="_blank">
           {file.name}
           {file.location && !disabled &&
             <span className="fas fa-external-link-alt ml-2" />
@@ -75,7 +82,7 @@ class File extends PureComponent {
   renderUploadStatus = () => {
     const file = this.props.file
 
-    if (!file.status || file.status === 'UPLOADED') {
+    if (!file.status || file.status === 'UPLOADED' || file.status === 'UPLOAD_POSTPONED') {
       return null
     }
 
@@ -97,7 +104,6 @@ class File extends PureComponent {
           </small>
         </div>
       )
-
       // return (
       //   <div className="dropzone-file-upload-progress-container">
       //     <div
@@ -180,6 +186,7 @@ File.propTypes = {
   file: object.isRequired,
   includeFileTypeIcons: bool.isRequired,
   showPreview: bool.isRequired,
+  uploadOnDrop: bool.isRequired,
   disabled: bool,
   removeFile: func,
 }

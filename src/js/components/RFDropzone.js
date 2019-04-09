@@ -93,19 +93,11 @@ class RFDropzone extends Component {
   handleDrop = (acceptedFiles, rejectedFiles) => {
     if (!acceptedFiles.length && !rejectedFiles.length) return
 
-    this.confirmUpload()
-      .then(() => this.startUploadProcess(acceptedFiles, rejectedFiles))
-  }
-
-  startUploadProcess = (acceptedFiles, rejectedFiles) => {
-    const files = [].concat(acceptedFiles, rejectedFiles)
-    const validFiles = this.validateFiles(files, this.props)
-
-    if (validFiles.length) {
-      this.setState(toggleUploadingStatus)
-      this.prepareFiles(validFiles).then(preparedFiles => {
-        this.setState(addFilesToQueue(preparedFiles), this.processQueue)
-      })
+    if (this.props.uploadOnDrop) {
+      this.confirmUpload()
+        .then(() => this.startUploadProcess(acceptedFiles, rejectedFiles))
+    } else {
+      this.prepareFilesForUpload(acceptedFiles, rejectedFiles)
     }
   }
 
@@ -123,6 +115,29 @@ class RFDropzone extends Component {
         resolve()
       }
     })
+  }
+
+  prepareFilesForUpload = (acceptedFiles, rejectedFiles) => {
+    const files = [].concat(acceptedFiles, rejectedFiles)
+    const validFiles = this.validateFiles(files, this.props)
+
+    if (validFiles.length) {
+      this.prepareFiles(validFiles)
+        .then(preparedFiles => {
+          this.addFilesToFormValues(preparedFiles, true)
+        })
+    }
+  }
+
+  startUploadProcess = (acceptedFiles, rejectedFiles) => {
+    const files = [].concat(acceptedFiles, rejectedFiles)
+    const validFiles = this.validateFiles(files, this.props)
+
+    if (validFiles.length) {
+      this.setState(toggleUploadingStatus)
+      this.prepareFiles(validFiles)
+        .then(preparedFiles => this.setState(addFilesToQueue(preparedFiles), this.processQueue))
+    }
   }
 
   validateFiles = (files) => {
@@ -152,7 +167,7 @@ class RFDropzone extends Component {
             type: file.type,
             preview: file.preview,
             content: base64EncodedContent,
-            status: 'PENDING'
+            status: this.props.uploadOnDrop ? 'PENDING' : 'UPLOAD_POSTPONED'
           })
         }
       }
@@ -287,7 +302,6 @@ class RFDropzone extends Component {
     const field = this.props.input
     const target = field.value || []
     const targetProp = this.props.targetProp
-    // const attachedStatusProp = this.props.attachedStatusProp
     let targetCopy = JSON.parse(JSON.stringify(target))
 
     if (replaceExisting) {
@@ -305,12 +319,6 @@ class RFDropzone extends Component {
         targetCopy = targetCopy.concat(files)
       }
     }
-
-
-
-    // if (attachedStatusProp) {
-    //   targetCopy[attachedStatusProp] = true
-    // }
 
     return field.onChange(targetCopy)
   }
@@ -427,7 +435,8 @@ class RFDropzone extends Component {
       getFilesOnMount,
       delayInitialLoad,
       includeFileTypeIcon,
-      showPreview
+      showPreview,
+      uploadOnDrop
     } = this.props
 
     const files = targetProp ? input.value[targetProp] || [] : input.value
@@ -453,6 +462,7 @@ class RFDropzone extends Component {
             disabled={disabled}
             showPreview={showPreview}
             includeFileTypeIcon={includeFileTypeIcon}
+            uploadOnDrop={uploadOnDrop}
             removeFile={this.removeFile}
           />
         }
@@ -537,6 +547,7 @@ RFDropzone.defaultProps = {
   maxFileSize: undefined,
   retryTimes: 10,
   showPreview: true,
+  uploadOnDrop: true,
 }
 
 RFDropzone.propTypes = {
@@ -563,6 +574,7 @@ RFDropzone.propTypes = {
   serverSideThreshold: number,
   showPreview: bool,
   targetProp: string,
+  uploadOnDrop: bool,
   // style: object,
 }
 

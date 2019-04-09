@@ -14,6 +14,7 @@ class Files extends PureComponent {
               disabled={this.props.disabled}
               showPreview={this.props.showPreview}
               removeFile={this.props.removeFile}
+              uploadOnDrop={this.props.uploadOnDrop}
             />
           ))}
         </ul>
@@ -27,6 +28,7 @@ Files.propTypes = {
   files: array.isRequired,
   removeFile: func.isRequired,
   showPreview: bool.isRequired,
+  uploadOnDrop: bool.isRequired,
 }
 
 export default Files

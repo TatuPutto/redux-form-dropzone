@@ -63,7 +63,7 @@ class File extends PureComponent {
       <span className="dropzone-file-content truncated">
         <a href={!disabled && (file.location || file.preview)} target="_blank">
           {file.name}
-          {file.location && !disabled &&
+          {!disabled && (file.location || file.preview) &&
             <span className="fas fa-external-link-alt ml-2" />
           }
         </a>

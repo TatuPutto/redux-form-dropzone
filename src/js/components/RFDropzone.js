@@ -324,6 +324,13 @@ class RFDropzone extends Component {
   }
 
   removeFile = (fileToRemove) => {
+    if (!this.props.uploadOnDrop) {
+      if (fileToRemove.preview) {
+        URL.revokeObjectURL(fileToRemove.preview)
+      }
+      return this.removeFileFromFormValues(fileToRemove)
+    }
+
     const _this = this
     const request = new XMLHttpRequest()
 
@@ -553,7 +560,7 @@ RFDropzone.defaultProps = {
 RFDropzone.propTypes = {
   input: object.isRequired,
   meta: object.isRequired,
-  uploadUrl: string.isRequired,
+  uploadUrl: string,
   acceptedFileFormats: string,
   alwaysEnabled: bool,
   allowMultiple: bool,

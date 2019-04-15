@@ -1,6 +1,6 @@
 {
   "name": "@tatuputto/redux-form-dropzone",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Redux form compatible dropzone component build on top of react-dropzone",
   "main": "./lib/index.js",
   "scripts": {

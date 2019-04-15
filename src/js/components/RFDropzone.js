@@ -38,6 +38,7 @@ class RFDropzone extends Component {
     }
     this.dropzoneRef = React.createRef()
     this.failedFetchAttempts = 0
+    this.retryTimeoutHandle
     // this.progressBarAutocompleteInterval
   }
 
@@ -53,6 +54,10 @@ class RFDropzone extends Component {
         this.getFiles()
       }, delayInitialLoad)
     }
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.retryTimeoutHandle)
   }
 
   toggleDisabledStatus = () => {
@@ -73,7 +78,7 @@ class RFDropzone extends Component {
         this.failedFetchAttempts++
         this.setState(setFetchFailureStatus)
         if (retryTimeout && this.failedFetchAttempts < retryTimes) {
-          setTimeout(() => this.getFiles(), retryTimeout)
+          this.retryTimeoutHandle = setTimeout(() => this.getFiles(), retryTimeout)
         }
       })
   }
@@ -552,7 +557,7 @@ RFDropzone.defaultProps = {
   includeFileTypeIcon: false,
   includeFileRestrictionsLegend: false,
   maxFileSize: undefined,
-  retryTimes: 10,
+  retryTimes: 5,
   showPreview: true,
   uploadOnDrop: true,
 }

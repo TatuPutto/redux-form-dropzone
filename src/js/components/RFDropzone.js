@@ -97,7 +97,7 @@ class RFDropzone extends Component {
   createFolder = () => {
     const uploadUrl = this.props.uploadUrl
     const uploadUrlParts = uploadUrl.split('/')
-    const folderName = uploadUrlParts.slice(uploadUrlParts.length - 1)
+    const folderName = uploadUrlParts.slice(uploadUrlParts.length - 1).toString()
     const folderUri = uploadUrlParts.slice(0, uploadUrlParts.length - 1).join('/')
     const request = new XMLHttpRequest()
     const _this = this

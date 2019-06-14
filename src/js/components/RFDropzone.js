@@ -65,7 +65,12 @@ class RFDropzone extends Component {
   }
 
   getFiles = () => {
-    const { getFilesOnMount, retryTimeout, retryTimes } = this.props
+    const {
+      getFilesOnMount,
+      createFolderIfAbsent,
+      retryTimeout,
+      retryTimes
+    } = this.props
 
     this.setState(toggleFetchingStatus)
 
@@ -77,10 +82,43 @@ class RFDropzone extends Component {
       .catch(() => {
         this.failedFetchAttempts++
         this.setState(setFetchFailureStatus)
-        if (retryTimeout && this.failedFetchAttempts < retryTimes) {
+
+        const retriesExceeded = this.failedFetchAttempts > retryTimes
+
+        if (retryTimeout && !retriesExceeded) {
           this.retryTimeoutHandle = setTimeout(() => this.getFiles(), retryTimeout)
+        } else if (createFolderIfAbsent && retriesExceeded) {
+          this.setState(toggleFetchingStatus)
+          this.createFolder()
         }
       })
+  }
+
+  createFolder = () => {
+    const uploadUrl = this.props.uploadUrl
+    const uploadUrlParts = uploadUrl.split('/')
+    const folderName = uploadUrlParts.slice(uploadUrlParts.length - 1)
+    const folderUri = uploadUrlParts.slice(0, uploadUrlParts.length - 1).join('/')
+    const request = new XMLHttpRequest()
+    const _this = this
+
+    request.addEventListener('load', handleRequestCompletion)
+    request.addEventListener('error', handleRequestCompletion)
+    request.open('POST', folderUri, true)
+    request.withCredentials = this.props.includeCredentials
+    request.setRequestHeader('Content-Type', 'application/json')
+    request.send(JSON.stringify({ name: folderName }))
+
+
+    function handleRequestCompletion(e) {
+      const responseStatus = e.target.status
+      if (responseStatus >= 200 && responseStatus < 300) {
+        _this.addFilesToFormValues([], true)
+        _this.setState(setFetchSuccessStatus)
+      } else {
+        _this.setState(setFetchFailureStatus)
+      }
+    }
   }
 
   getCurrentFiles = () => {
@@ -571,6 +609,7 @@ RFDropzone.propTypes = {
   allowMultiple: bool,
   attachedStatusProp: string,
   className: string,
+  createFolderIfAbsent: bool,
   delayInitialLoad: number,
   disabled: bool,
   getFilesOnMount: func,
